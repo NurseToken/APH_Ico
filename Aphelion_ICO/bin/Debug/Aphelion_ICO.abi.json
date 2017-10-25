@@ -1,0 +1,25 @@
+{
+    "hash":"hash",
+    "entrypoint":"Main",
+    "functions":
+    [
+        {
+            "name":"Main",
+            "returntype":"Any",
+            "paramaters":
+            [
+                {
+                    "name":"operation",
+                    "type":"String"
+                },
+                {
+                    "name":"args",
+                    "type":"Array"
+                }
+            ]
+        }
+    ],
+    "events":
+    [
+    ]
+}
