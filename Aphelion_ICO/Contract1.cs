@@ -14,6 +14,11 @@ namespace Aphelion_ICO
             string name = "Aphelion";
             string symbol = "APH";
             BigInteger decimals = 8;
+
+            //TODO: We need to verify what key or signature is used for withdrawal
+            //This is a byte array of the public key of the owner of the contract
+            byte[] owner = new byte[] { 2, 133, 234, 182, 95, 74, 1, 38, 228, 184, 91, 78, 93, 139, 126, 48, 58, 255, 126, 251, 54, 13, 89, 95, 46, 49, 137, 187, 144, 72, 122, 213, 170 };
+
             if (!VerifyWithdrawal(operation)) return false;
             if (operation == "mintTokens") return MintTokens();
             if (operation == "totalSupply") return TotalSupply();
@@ -25,134 +30,255 @@ namespace Aphelion_ICO
             if (operation == "refund") return Refund();
             if (operation == "withdrawal") return Withdrawal(args);
             if (operation == "decimals") return decimals;
-            if (operation == "inflation") return 0; //no idea if we need this.
-            if (operation == "inflationRate") return 0; //no idea if we need this
-            if (operation == "inflationDate") return 0; //no idea if we need this
+
+            //We believe this is a variable used for inflation.
+            if (operation == "inflation") return 0;
+
+            //We believe this is a variable for the inflationRate, which could be specified in the Neo-Gui
+            if (operation == "inflationRate") return 0;
+
+            //We believe this is the date when the inflationRate would kick in.
+            if (operation == "inflationDate") return 0;
 
             return false;
         }
-        // initialization parameters, only once
+
+        // This should only be invoked once. In the Neo-Gui on the Peter Lin RPX branch, there is a method
+        // on the ExecuteDialog, which enables the user to invoke Deploy.
         private static bool Deploy()
         {
-            //this is a byte array of the key of the owner
-            //TODO: verify if public key, private key, signature or what works here for witdrawal. 
-            byte[] owner = new byte[] { 2, 133, 234, 182, 95, 74, 1, 38, 228, 184, 91, 78, 93, 139, 126, 48, 58, 255, 126, 251, 54, 13, 89, 95, 46, 49, 137, 187, 144, 72, 122, 213, 170 };
+
+            //This is the amount that we would allocate before the ICO. Right now,
+            //this is set to 30,000,000
             BigInteger pre_ico_cap = 30000000;
+
+            //This is to enable us to manage the decimals as a BigInteger so we don't lose precision
             uint decimals_rate = 100000000;
+
+            //We ask the Storage, which is the storage within the context of the Contract that resides on the
+            //Blockchain to get the totalSupply amount within this contract.
             byte[] total_supply = Storage.Get(Storage.CurrentContext, "totalSupply");
+
+            //If the total_supply is already set, then we exit with false. The totalSupply can only
+            //be set once.
             if (total_supply.Length != 0)
             {
                 return false;
             }
+
+            //We write to storage that the owner address has pre_ico_cap * decimal_rate Aphelion.
+            //We believe this is done to enable pre-ico reserves to be maintained.
             //TODO: verify if the owner can somehow transfer this initial amount of APH easily
-            Storage.Put(Storage.CurrentContext, owner, IntToBytes(pre_ico_cap * decimals_rate)); //the idea is to generate in initial supply based on the supply needed
-                                                                                                    //for the pre-ico supporters?
-            Storage.Put(Storage.CurrentContext, "totalSupply", IntToBytes(pre_ico_cap * decimals_rate)); //this would be the initial supply. How do we transfer this to the pre-ico supporters?
+            Storage.Put(Storage.CurrentContext, owner, IntToBytes(pre_ico_cap * decimals_rate));
+            Storage.Put(Storage.CurrentContext, "owner", owner);
+
+            //We then set the totalSupply to be equal to the pre_ico_cap * decimals_rate
+            Storage.Put(Storage.CurrentContext, "totalSupply", IntToBytes(pre_ico_cap * decimals_rate));
+
+            //at this point, we have to items written to storage. We have the owner assigned to pre_ico_cap * decimals_rate,
+            //and we have the totalSupply equal to the pre_ico_cap * decimals_rate. We have 30,000,000 tokens in the system
+            //after calling deploy
             return true;
         }
-        // The function Withdrawal is only usable when contract owner want
-        // to transfer neo from contract
+
+        // This is a private function that we believe will only enable the owner to withdraw the NEO from the contract to their own wallet.
         private static bool Withdrawal(object[] args)
         {
+            //this function only supports one argument
             if (args.Length != 1)
             {
                 return false;
             }
+
+            //we're assuming the one argument is the signature. what if it's not?
             byte[] signature = (byte[])args[0]; //let's get the signature
-            byte[] owner = Storage.Get(Storage.CurrentContext, "owner"); //get the owner signature of this contract
-            return VerifySignature(owner, signature); //return true and allow withdrawal of NEO only if the owner of the 
-                                                        //contract is the one calling this function.
+
+            //we get the the value of the "owner" from the storage that resides in the contract.
+            byte[] owner = Storage.Get(Storage.CurrentContext, "owner");
+
+            //return true and allow withdrawal of NEO only if the owner of the
+            //contract is the one calling this function.
+            return VerifySignature(owner, signature);
         }
 
-        // The function MintTokens is only usable by the chosen wallet
-        // contract to mint a number of tokens proportional to the
-        // amount of neo sent to the wallet contract. The function
+        // When people want to buy Aphelion using NEO, they "send" NEO to this contract.
+        // The MintTokens function gets invoked to mint the number of Aphelion tokens proportional to the
+        // amount of Neo sent to the contract. This function
         // can only be called during the tokenswap period
         private static bool MintTokens()
         {
+            //We define decimal again because we don't want anything public
             uint decimals_rate = 100000000;
-            //this is the id of the NEO Asset. it's unique to the whole blockchain.
+
+            //We specify the Neo Global Asset Public Key so that we can ensure that only Neo is used in the transaction.
+            //This is the public key for the NEO Asset. This key iss unique to the whole blockchain.
             byte[] neo_asset_id = new byte[] { 197, 111, 51, 252, 110, 207, 205, 12, 34, 92, 74, 179, 86, 254, 229, 147, 144, 175, 133, 96, 190, 14, 147, 15, 174, 190, 116, 166, 218, 255, 124, 155 };
+
+            //We acquire a transaction from the Execution Engine
             Transaction trans = (Transaction)ExecutionEngine.ScriptContainer;
+
+            //Is this the UTXO Approach. The other approach is what the banks use may be cleaner.
+            //https://storeofvalue.github.io/posts/neo-vs-qtum-which-is-the-real-chinese-ethereum/
+
+            //We acquire the transaction_input from the transaction
             TransactionInput trans_input = trans.GetInputs()[0];
+
+            //We acquire the previous hash code or the transaction input
             byte[] prev_hash = trans_input.PrevHash;
+
+            //We acquire the new transaction from the blockchain using the previous_hash as the input.
             Transaction prev_trans = Blockchain.GetTransaction(prev_hash);
+
+            //We acquire the TransactionOutput by using the transaction inputs previous index as the index into the
+            //previous_transactions output
             TransactionOutput prev_trans_output = prev_trans.GetOutputs()[trans_input.PrevIndex];
+
+            //This enables us to see whether the asset that was passed to us in the previous transaction was Neo.
+            //We see if the previous_transaction output asset id is equal to the neo_asset_id we specified at the top.
             if (!BytesEqual(prev_trans_output.AssetId, neo_asset_id))
             {
-                return false; //return false if, for some reason, the hash for this transaction is the same as the previous one.
+                //If they didn't pass Neo to this transaction, then we exit.
+                return false;
             }
+            //We acquire the ScriptHash from the previous transaction output. The Script Hash is equal to public key, which
+            //tells us who it is.
             byte[] sender = prev_trans_output.ScriptHash;
+
+            //We go to the current transactoins output.
             TransactionOutput[] trans_outputs = trans.GetOutputs();
+
+            //We acquire the ScriptHash of the user who is Executing the transaction. The ScriptHash is the Public key.
             byte[] receiver = ExecutionEngine.ExecutingScriptHash;
-            //La suma de los bytes es la dirección del contrato actual ?
+
+            //We setup a value variable to store the amount of Neo that is coming in
             long value = 0;
+
+            //We iterate through the Transaction Outputs
             foreach (TransactionOutput trans_output in trans_outputs)
             {
+                //We ensure ensure that the receiver is equal to the public key of the transaction output.
                 if (BytesEqual(trans_output.ScriptHash, receiver))
                 {
+                    //add the transaction_output value of Neo to the value variable
                     value += trans_output.Value;
 
                 }
             }
-            //get the current rate and, then, calculate the real amount of tokens issued.
+
+            //Get the current exchange rate
             uint swap_rate = CurrentSwapRate();
+
+            //If the current exchange rate is 0, then it's a refund. We want to log who gets the refund.
             if (swap_rate == 0)
             {
+                //We acquire the public key for the log of the refundes
                 byte[] refund = Storage.Get(Storage.CurrentContext, "refund");
+
+                //We convert the amount of Neos to be refunded from the value that we acquired by iterating through the output transactions
+                //to an integer
                 byte[] sender_value = IntToBytes(value);
+
+                //We take the refunds, and we actually concatenate the senders address to the refund log on the blockchain
                 byte[] new_refund = refund.Concat(sender.Concat(IntToBytes(sender_value.Length).Concat(sender_value)));
+
+                //We write the new_refund log to the "refund" entity in the storage of the contract
                 Storage.Put(Storage.CurrentContext, "refund", new_refund);
                 return false;
             }
+
+            //We now calculate the amount of Aphelion that this person is purchasing.
+            //We multiply the sum of the transaction output values by the current exchange rate by the decimals_rate
             long token = value * swap_rate * decimals_rate;
-            //store the APH into the account and add it to the total supply.
+
+            //We acquire the send value from the contract storage. We associate that with a BigInteger to symbolize the current
+            //amount of Aphelion in the system for this user.
             BigInteger total_token = BytesToInt(Storage.Get(Storage.CurrentContext, sender));
+
+            //We then sum the current amount of aphelion plus the new amount of aphelion with transaction, and we write to the
+            //storage of the contract
             Storage.Put(Storage.CurrentContext, sender, IntToBytes(token + total_token));
-            byte[] totalSypply = Storage.Get(Storage.CurrentContext, "totalSypply");
-            Storage.Put(Storage.CurrentContext, "totalSypply", IntToBytes(token + BytesToInt(totalSypply)));
+
+            //Next, we acquire the totalSupply from the contract's storage
+            byte[] totalSupply = Storage.Get(Storage.CurrentContext, "totalSupply");
+
+            //We increment the totalSupply by the amount purchased.
+            Storage.Put(Storage.CurrentContext, "totalSupply", IntToBytes(token + BytesToInt(totalSupply)));
+
+            //The transaction is complete.
             return true;
         }
-        // Get the storage values saved for all the refunds pending
+
+        //Get the log of people who have asked for refunds
         private static byte[] Refund()
         {
             return Storage.Get(Storage.CurrentContext, "refund");
         }
-        // Get the total token supply
+
+        //Get the total token supply
         private static BigInteger TotalSupply()
         {
-            byte[] totalSupply = Storage.Get(Storage.CurrentContext, "totalSypply");
+            byte[] totalSupply = Storage.Get(Storage.CurrentContext, "totalSupply");
             return BytesToInt(totalSupply);
         }
 
-        //Transfer APH tokens from my account to a public address.
+        //Transfer APH tokens from the contract to a public address.
         //For NEP5 compliance, the params should be:
-        //The first element is sender address and type is byte[], 
-        //the second element is receiver address and type is byte[], 
-        //the third element is the number of token and type is BigInteger .
+        //  The first index contains the from public key and type is byte[],
+        //  The second index contains the receiver address and type is byte[],
+        //  The third index contains the number of token and type is BigInteger .
         private static bool Transfer(object[] args)
         {
-            if (args.Length != 3) return false;
-            byte[] from = (byte[])args[0]; // we get the sender address here. 
-            if (!Runtime.CheckWitness(from)) return false; //Need to ensure the sender address is the one doing the transfer.
-            byte[] to = (byte[])args[1]; //now we get the addres to send the tokens here
-            BigInteger value = BytesToInt((byte[])args[2]); //The amount of APH to be transfered
-            if (value < 0) return false; // return if no APHs are being transfered
-            byte[] from_value = Storage.Get(Storage.CurrentContext, from); //get the amount of APH for the FROM account here
-            byte[] to_value = Storage.Get(Storage.CurrentContext, to); // get the amount of APH for the TO account here.
-            BigInteger n_from_value = BytesToInt(from_value) - value; //get the new value that would be on the FROM account
-            if (n_from_value < 0) return false; //if that new value iz zero, return, the transfer can't be done
-            BigInteger n_to_value = BytesToInt(to_value) + value; //now let's get the new value that would be on the TO account
-            Storage.Put(Storage.CurrentContext, from, IntToBytes(n_from_value)); //update the FROM account to the new value
-            Storage.Put(Storage.CurrentContext, to, IntToBytes(n_to_value)); //update the TO account to the new value
-            Transferred(args); //fire the transfered event, to comply with NEP-5
-            return true; 
+            if (args.Length != 3)
+              return false;
+
+            // we get the sender address here.
+            byte[] from = (byte[])args[0];
+
+            //Need to ensure the sender address is the one doing the transfer.
+            if (!Runtime.CheckWitness(from))
+              return false;
+
+            //now we get the addres to send the tokens here
+            byte[] to = (byte[])args[1];
+
+            //The amount of APH to be transfered
+            BigInteger value = BytesToInt((byte[])args[2]);
+
+            // return if no APHs are being transfered
+            if (value < 0)
+              return false;
+
+            //get the amount of APH for the FROM account here
+            byte[] from_value = Storage.Get(Storage.CurrentContext, from);
+
+            // get the amount of APH for the TO account here.
+            byte[] to_value = Storage.Get(Storage.CurrentContext, to);
+
+            //get the new value that would be on the FROM account
+            BigInteger n_from_value = BytesToInt(from_value) - value;
+
+             //if that new value iz zero, return, the transfer can't be done
+            if (n_from_value < 0)
+              return false;
+
+            //now let's get the new value that would be on the TO account
+            BigInteger n_to_value = BytesToInt(to_value) + value;
+
+            //update the FROM account to the new value
+            Storage.Put(Storage.CurrentContext, from, IntToBytes(n_from_value));
+
+            //update the TO account to the new value
+            Storage.Put(Storage.CurrentContext, to, IntToBytes(n_to_value));
+
+            //fire the transfered event, to comply with NEP-5
+            Transferred(args);
+            return true;
         }
 
-        //This event is fired when a succesful transfer is made. 
+        //This event is fired when a succesful transfer is made.
         //For NEP5 compliance, the params should be:
-        //The first element is sender address and type is byte[], 
-        //the second element is receiver address and type is byte[], 
+        //The first element is sender address and type is byte[],
+        //the second element is receiver address and type is byte[],
         //the third element is the number of token and type is BigInteger .
         private static void Transferred(object[] args)
         {
@@ -164,10 +290,18 @@ namespace Aphelion_ICO
         //The first element is the address of the account and type is byte[]
         private static BigInteger BalanceOf(object[] args)
         {
-            if (args.Length != 1) return 0; //if no arguments are found, return
-            byte[] address = (byte[])args[0]; //get the address for the account in question
-            byte[] balance = Storage.Get(Storage.CurrentContext, address); //get the amount of APH for that account from the storage
-            return BytesToInt(balance); //return the APH
+            //if no arguments are found, return
+            if (args.Length != 1)
+              return 0;
+
+            //get the address for the account in question
+            byte[] address = (byte[])args[0];
+
+            //get the amount of APH for that account from the storage
+            byte[] balance = Storage.Get(Storage.CurrentContext, address);
+
+            //return the APH
+            return BytesToInt(balance);
         }
 
 
@@ -204,10 +338,15 @@ namespace Aphelion_ICO
                 return true;
             }
             Transaction trans = (Transaction)ExecutionEngine.ScriptContainer;
+
             TransactionInput trans_input = trans.GetInputs()[0];
+
             Transaction prev_trans = Blockchain.GetTransaction(trans_input.PrevHash);
+
             TransactionOutput prev_trans_output = prev_trans.GetOutputs()[trans_input.PrevIndex];
+
             byte[] script_hash = ExecutionEngine.ExecutingScriptHash;
+
             if (BytesEqual(prev_trans_output.ScriptHash, script_hash))
             {
                 return false;
