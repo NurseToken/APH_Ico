@@ -4,6 +4,13 @@
     "functions":
     [
         {
+            "name":"SETTINGS_DECIMAL",
+            "returntype":"Integer",
+            "paramaters":
+            [
+            ]
+        },
+        {
             "name":"Main",
             "returntype":"Any",
             "paramaters":

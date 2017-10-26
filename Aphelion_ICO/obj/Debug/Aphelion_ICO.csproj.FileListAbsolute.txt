@@ -1,4 +1,3 @@
-c:\users\andres\Source\Repos\Aphelion_ICO\Aphelion_ICO\obj\Debug\Aphelion_ICO.csprojResolveAssemblyReference.cache
 c:\users\andres\Source\Repos\Aphelion_ICO\Aphelion_ICO\obj\Debug\Aphelion_ICO.csproj.CoreCompileInputs.cache
 c:\users\andres\Source\Repos\Aphelion_ICO\Aphelion_ICO\bin\Debug\Aphelion_ICO.dll
 c:\users\andres\Source\Repos\Aphelion_ICO\Aphelion_ICO\bin\Debug\Aphelion_ICO.pdb

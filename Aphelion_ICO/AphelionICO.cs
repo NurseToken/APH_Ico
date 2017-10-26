@@ -6,30 +6,32 @@ using System.Numerics;
 
 namespace Aphelion_ICO
 {
-    public class Contract1 : SmartContract
+    public class AphelionICO : SmartContract
     {
+        //KEYS used on the storage thru this contract
+        private static string KEY_OWNER() => "owner";
+        private static string KEY_TOTAL_SUPPLY() => "totalSupply";
+
+        //token settings
+        private static string SETTINGS_NAME() => "Aphelion";
+        private static string SETTINGS_SYMBOL() => "APH";
+        public static byte SETTINGS_DECIMAL() => 8;
+        private const uint factor = 100000000; //decided by SETTINGS_DECIMAL()
+
         //this is the initial method that gets called when anyone invokes this contract
         public static Object Main(string operation, params object[] args)
         {
-            string name = "Aphelion";
-            string symbol = "APH";
-            BigInteger decimals = 8;
-
-            //TODO: We need to verify what key or signature is used for withdrawal
-            //This is a byte array of the public key of the owner of the contract
-            byte[] owner = new byte[] { 2, 133, 234, 182, 95, 74, 1, 38, 228, 184, 91, 78, 93, 139, 126, 48, 58, 255, 126, 251, 54, 13, 89, 95, 46, 49, 137, 187, 144, 72, 122, 213, 170 };
-
             if (!VerifyWithdrawal(operation)) return false;
             if (operation == "mintTokens") return MintTokens();
             if (operation == "totalSupply") return TotalSupply();
-            if (operation == "name") return name;
-            if (operation == "symbol") return symbol;
+            if (operation == "name") return SETTINGS_NAME();
+            if (operation == "symbol") return SETTINGS_SYMBOL();
             if (operation == "transfer") return Transfer(args);
             if (operation == "balanceOf") return BalanceOf(args);
             if (operation == "deploy") return Deploy();
             if (operation == "refund") return Refund();
             if (operation == "withdrawal") return Withdrawal(args);
-            if (operation == "decimals") return decimals;
+            if (operation == "decimals") return SETTINGS_DECIMAL();
 
             //We believe this is a variable used for inflation.
             if (operation == "inflation") return 0;
@@ -47,17 +49,20 @@ namespace Aphelion_ICO
         // on the ExecuteDialog, which enables the user to invoke Deploy.
         private static bool Deploy()
         {
+            //TODO: We need to verify what key or signature is used for withdrawal
+            //This is a byte array of the public key of the owner of the contract
+            byte[] owner = new byte[] { 2, 133, 234, 182, 95, 74, 1, 38, 228, 184, 91, 78, 93, 139, 126, 48, 58, 255, 126, 251, 54, 13, 89, 95, 46, 49, 137, 187, 144, 72, 122, 213, 170 };
 
             //This is the amount that we would allocate before the ICO. Right now,
             //this is set to 30,000,000
             BigInteger pre_ico_cap = 30000000;
 
             //This is to enable us to manage the decimals as a BigInteger so we don't lose precision
-            uint decimals_rate = 100000000;
+            uint decimals_rate = factor;
 
             //We ask the Storage, which is the storage within the context of the Contract that resides on the
             //Blockchain to get the totalSupply amount within this contract.
-            byte[] total_supply = Storage.Get(Storage.CurrentContext, "totalSupply");
+            byte[] total_supply = Storage.Get(Storage.CurrentContext, KEY_TOTAL_SUPPLY());
 
             //If the total_supply is already set, then we exit with false. The totalSupply can only
             //be set once.
@@ -70,10 +75,10 @@ namespace Aphelion_ICO
             //We believe this is done to enable pre-ico reserves to be maintained.
             //TODO: verify if the owner can somehow transfer this initial amount of APH easily
             Storage.Put(Storage.CurrentContext, owner, IntToBytes(pre_ico_cap * decimals_rate));
-            Storage.Put(Storage.CurrentContext, "owner", owner);
+            Storage.Put(Storage.CurrentContext, KEY_OWNER(), owner);
 
             //We then set the totalSupply to be equal to the pre_ico_cap * decimals_rate
-            Storage.Put(Storage.CurrentContext, "totalSupply", IntToBytes(pre_ico_cap * decimals_rate));
+            Storage.Put(Storage.CurrentContext, KEY_TOTAL_SUPPLY(), IntToBytes(pre_ico_cap * decimals_rate));
 
             //at this point, we have to items written to storage. We have the owner assigned to pre_ico_cap * decimals_rate,
             //and we have the totalSupply equal to the pre_ico_cap * decimals_rate. We have 30,000,000 tokens in the system
@@ -94,7 +99,7 @@ namespace Aphelion_ICO
             byte[] signature = (byte[])args[0]; //let's get the signature
 
             //we get the the value of the "owner" from the storage that resides in the contract.
-            byte[] owner = Storage.Get(Storage.CurrentContext, "owner");
+            byte[] owner = Storage.Get(Storage.CurrentContext, KEY_OWNER());
 
             //return true and allow withdrawal of NEO only if the owner of the
             //contract is the one calling this function.
@@ -107,8 +112,7 @@ namespace Aphelion_ICO
         // can only be called during the tokenswap period
         private static bool MintTokens()
         {
-            //We define decimal again because we don't want anything public
-            uint decimals_rate = 100000000;
+            uint decimals_rate = factor;
 
             //We specify the Neo Global Asset Public Key so that we can ensure that only Neo is used in the transaction.
             //This is the public key for the NEO Asset. This key iss unique to the whole blockchain.
@@ -199,10 +203,10 @@ namespace Aphelion_ICO
             Storage.Put(Storage.CurrentContext, sender, IntToBytes(token + total_token));
 
             //Next, we acquire the totalSupply from the contract's storage
-            byte[] totalSupply = Storage.Get(Storage.CurrentContext, "totalSupply");
+            byte[] totalSupply = Storage.Get(Storage.CurrentContext, KEY_TOTAL_SUPPLY());
 
             //We increment the totalSupply by the amount purchased.
-            Storage.Put(Storage.CurrentContext, "totalSupply", IntToBytes(token + BytesToInt(totalSupply)));
+            Storage.Put(Storage.CurrentContext, KEY_TOTAL_SUPPLY(), IntToBytes(token + BytesToInt(totalSupply)));
 
             //The transaction is complete.
             return true;
@@ -217,7 +221,7 @@ namespace Aphelion_ICO
         //Get the total token supply
         private static BigInteger TotalSupply()
         {
-            byte[] totalSupply = Storage.Get(Storage.CurrentContext, "totalSupply");
+            byte[] totalSupply = Storage.Get(Storage.CurrentContext, KEY_TOTAL_SUPPLY());
             return BytesToInt(totalSupply);
         }
 
@@ -360,8 +364,8 @@ namespace Aphelion_ICO
             BigInteger ico_start_time = 1508889600; //Oct 25 2017
             BigInteger ico_end_time = 1511568000; //Nov 25 2017
             uint exchange_rate = 1000;
-            BigInteger total_amount = 1000000000;
-            byte[] total_supply = Storage.Get(Storage.CurrentContext, "totalSupply");
+            BigInteger total_amount = 1000000000; //this is the amount at which we'll stop generating APH
+            byte[] total_supply = Storage.Get(Storage.CurrentContext, KEY_TOTAL_SUPPLY());
             if (BytesToInt(total_supply) > total_amount)
             {
                 return 0;
