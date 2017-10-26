@@ -18,6 +18,32 @@ namespace Aphelion_ICO
         public static byte SETTINGS_DECIMAL() => 8;
         private const uint factor = 100000000; //decided by SETTINGS_DECIMAL()
 
+        private static uint round1_total_tokens = 10000000;
+        private static uint round2_total_tokens = 20000000;
+        private static uint round3_total_tokens = 70000000;
+        private static uint round4_total_tokens = 120000000;
+        private static uint round5_total_tokens = 170000000;
+
+        //Oct 25 2017
+        private static BigInteger ico_start_date = 1508889600;
+
+        // 1 day * 24 hours * 60 mins * 60 secs after the ico start date
+        private static BigInteger round1_end_time = 86400;
+
+        // 3 days * 24 hours * 60 mins * 60 secs after the ico start date
+        private static BigInteger round2_end_time = 259200;
+
+        // 7 days * 24 hours * 60 mins * 60 secs after the ico start date
+        private static BigInteger round3_end_time = 604800;
+
+        // 14 days * 24 hours * 60 mins * 60 secs after the ico start date
+        private static BigInteger round4_end_time = 1209600;
+
+        //the total duration for the whole ico token generation
+        // 21 days * 24 hours * 60 mins * 60 secs after the ico start date
+        private static BigInteger ico_duration = 1814400;
+
+
         //this is the initial method that gets called when anyone invokes this contract
         public static Object Main(string operation, params object[] args)
         {
@@ -361,36 +387,40 @@ namespace Aphelion_ICO
         // between rpx tokens and neo during the token swap period
         private static uint CurrentSwapRate()
         {
-            BigInteger ico_start_time = 1508889600; //Oct 25 2017
-            BigInteger ico_end_time = 1511568000; //Nov 25 2017
+            uint height = Blockchain.GetHeight();
+            uint now = Blockchain.GetHeader(height).Timestamp;
+            uint time = (uint)ico_start_date - now;
             uint exchange_rate = 1000;
             BigInteger total_amount = 1000000000; //this is the amount at which we'll stop generating APH
             byte[] total_supply = Storage.Get(Storage.CurrentContext, KEY_TOTAL_SUPPLY());
-            if (BytesToInt(total_supply) > total_amount)
-            {
-                return 0;
-            }
-            uint height = Blockchain.GetHeight();
-            uint now = Blockchain.GetHeader(height).Timestamp;
-            uint time = (uint)ico_start_time - now;
+            
             if (time < 0)
             {
                 return 0;
             }
-            else if (time <= 86400)
+            else if (time <= round1_end_time && BytesToInt(total_supply) < round1_total_tokens)
             {
+                //return the preico exchange rate here
+                return exchange_rate * 150 / 100;
+            }
+            else if (time > round1_end_time &&  time <= round2_end_time && BytesToInt(total_supply) < round2_total_tokens)
+            {
+                //return the preico exchange rate here
+                return exchange_rate * 140 / 100;
+            }
+            else if (time > round2_end_time && time <= round3_end_time && BytesToInt(total_supply) < round3_total_tokens)
+            {
+                //return the preico exchange rate here
                 return exchange_rate * 130 / 100;
             }
-            else if (time <= 259200)
+            else if (time > round3_end_time && time <= round4_end_time && BytesToInt(total_supply) < round4_total_tokens)
             {
+                //return the preico exchange rate here
                 return exchange_rate * 120 / 100;
             }
-            else if (time <= 604800)
+            else if (time > round4_end_time && time <= ico_duration && BytesToInt(total_supply) < round5_total_tokens)
             {
-                return exchange_rate * 110 / 100;
-            }
-            else if (time <= 1209600)
-            {
+                //return the preico exchange rate here
                 return exchange_rate;
             }
             else
