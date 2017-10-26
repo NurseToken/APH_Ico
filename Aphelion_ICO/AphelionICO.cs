@@ -13,8 +13,8 @@ namespace Aphelion_ICO
         private static string KEY_TOTAL_SUPPLY() => "totalSupply";
 
         //token settings
-        private static string SETTINGS_NAME() => "Aphelion";
-        private static string SETTINGS_SYMBOL() => "APH";
+        private static string SETTINGS_NAME() => "AphelionTest";
+        private static string SETTINGS_SYMBOL() => "APHT";
         public static byte SETTINGS_DECIMAL() => 8;
         private const uint factor = 100000000; //decided by SETTINGS_DECIMAL()
 
@@ -261,14 +261,14 @@ namespace Aphelion_ICO
             if (args.Length != 3)
               return false;
 
-            // we get the sender address here.
+            //Get the from address.
             byte[] from = (byte[])args[0];
 
-            //Need to ensure the sender address is the one doing the transfer.
+            //Need to ensure the FROM address is the one doing the transfer.
             if (!Runtime.CheckWitness(from))
               return false;
 
-            //now we get the addres to send the tokens here
+            //Now we get the TO address. The address that we're going to send the tokens, too.
             byte[] to = (byte[])args[1];
 
             //The amount of APH to be transfered
@@ -278,26 +278,26 @@ namespace Aphelion_ICO
             if (value < 0)
               return false;
 
-            //get the amount of APH for the FROM account here
+            //get the amount of APH for the FROM account that is available to transfer to the TO account
             byte[] from_value = Storage.Get(Storage.CurrentContext, from);
 
             // get the amount of APH for the TO account here.
             byte[] to_value = Storage.Get(Storage.CurrentContext, to);
 
-            //get the new value that would be on the FROM account
+            //Calculate the new value for the FROM account after the transaction takes place
             BigInteger n_from_value = BytesToInt(from_value) - value;
 
-             //if that new value iz zero, return, the transfer can't be done
+             //If the new value iz zero, return as the transfer can't be performed
             if (n_from_value < 0)
               return false;
 
-            //now let's get the new value that would be on the TO account
+            //now let's calculate the new value for the TO account
             BigInteger n_to_value = BytesToInt(to_value) + value;
 
-            //update the FROM account to the new value
+            //Write to Storage the new calculatd FROM account value
             Storage.Put(Storage.CurrentContext, from, IntToBytes(n_from_value));
 
-            //update the TO account to the new value
+            //Write to Storage the new calculatd TO account value
             Storage.Put(Storage.CurrentContext, to, IntToBytes(n_to_value));
 
             //fire the transfered event, to comply with NEP-5
@@ -324,10 +324,10 @@ namespace Aphelion_ICO
             if (args.Length != 1)
               return 0;
 
-            //get the address for the account in question
+            //get the address of the account in question
             byte[] address = (byte[])args[0];
 
-            //get the amount of APH for that account from the storage
+            //get the amount of APH for the specified account from the storage
             byte[] balance = Storage.Get(Storage.CurrentContext, address);
 
             //return the APH
@@ -359,65 +359,99 @@ namespace Aphelion_ICO
             return true;
         }
 
-        // transfer neo in smart contract can only invoke
-        // the function Withdrawal
+        // Only the Transfer function in this smart contract can invoke
+        // the function VerifyWithdrawal
         private static bool VerifyWithdrawal(string operation)
         {
             if (operation == "withdrawal")
             {
                 return true;
             }
+
+            //Acquire the Transaction from the ScriptContainer
             Transaction trans = (Transaction)ExecutionEngine.ScriptContainer;
 
+            //Acquire the first transaction input
             TransactionInput trans_input = trans.GetInputs()[0];
 
+            //Acquire the previous transaction by querying the blockchain for the previous hash 
+            //from the transaction input
             Transaction prev_trans = Blockchain.GetTransaction(trans_input.PrevHash);
 
+            //Acquire the previous transaction output from the previous_transaction 
+            //using the transaction input's previous index
             TransactionOutput prev_trans_output = prev_trans.GetOutputs()[trans_input.PrevIndex];
 
+            //Acquire the ScriptHash, aka public key
             byte[] script_hash = ExecutionEngine.ExecutingScriptHash;
 
+            //If the public key of the execution engine is the same key as the previous transaction
+            // then we return false. TODO: why?
             if (BytesEqual(prev_trans_output.ScriptHash, script_hash))
             {
                 return false;
             }
             return true;
         }
+
         // The function CurrentSwapRate() returns the current exchange rate
-        // between rpx tokens and neo during the token swap period
+        // between aph tokens and neo during the token swap period
         private static uint CurrentSwapRate()
         {
+            //The current height of the Blockchain. The most recent block
             uint height = Blockchain.GetHeight();
+
+            //The timestampe of the most recent block translates to Now.
             uint now = Blockchain.GetHeader(height).Timestamp;
+
+            //Subtract the now from current ico_start_date. 
+            //This is the amount of time since the beginning of the ICO.
+            //We will use this time to calculate the round.
             uint time = (uint)ico_start_date - now;
+
+            //Exchange rate that we will use to convert from Neo to Aphelion
             uint exchange_rate = 1000;
-            BigInteger total_amount = 1000000000; //this is the amount at which we'll stop generating APH
+
+            //This is the maximum amount of Aphelion that we will generate. 
+            //We'll stop generating APH when we hit this limit
+            BigInteger total_amount = 1000000000;
+
+            //Grab the current total supply of Aphelion
             byte[] total_supply = Storage.Get(Storage.CurrentContext, KEY_TOTAL_SUPPLY());
             
+            // if now is before ico start date, then return 0 as the rate
             if (time < 0)
             {
                 return 0;
             }
+            //if the ico has started, we're less than the round1 end time, and our total supply for round 1
+            //is less than the allotment for round 1, then give a 150% bonus
             else if (time <= round1_end_time && BytesToInt(total_supply) < round1_total_tokens)
             {
-                //return the preico exchange rate here
                 return exchange_rate * 150 / 100;
             }
+            //if the ico has started, we're greater than the round1 end time and less than round 2 end time
+            //and our total supply for round 2 is less than the allotment for round 2, then give a 140% bonus
             else if (time > round1_end_time &&  time <= round2_end_time && BytesToInt(total_supply) < round2_total_tokens)
             {
                 //return the preico exchange rate here
                 return exchange_rate * 140 / 100;
             }
+            //if the ico has started, we're greater than the round2 end time and less than round 3 end time
+            //and our total supply for round 3 is less than the allotment for round 3, then give a 130% bonus
             else if (time > round2_end_time && time <= round3_end_time && BytesToInt(total_supply) < round3_total_tokens)
             {
-                //return the preico exchange rate here
                 return exchange_rate * 130 / 100;
             }
+            //if the ico has started, we're greater than the round 3 end time and less than round 4 end time
+            //and our total supply for round 4 is less than the allotment for round 4, then give a 120% bonus
             else if (time > round3_end_time && time <= round4_end_time && BytesToInt(total_supply) < round4_total_tokens)
             {
                 //return the preico exchange rate here
                 return exchange_rate * 120 / 100;
             }
+            //if the ico has started, we're greater than the round 4 end time and less than the end time for the ico
+            //and our total supply for round 5 is less than the allotment for round 5, then use the default exchange rate
             else if (time > round4_end_time && time <= ico_duration && BytesToInt(total_supply) < round5_total_tokens)
             {
                 //return the preico exchange rate here
