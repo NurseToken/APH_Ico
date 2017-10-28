@@ -19,18 +19,6 @@ namespace Aphelion_ICO
         private const ulong factor = 100000000; //decided by Decimals()
         private const ulong neo_decimals = 100000000;
 
-        //rates at which the tokens will be exchanged for neo during each round
-        private static ulong[] rates_by_round = [ 140, 130, 120, 110, 100 ];
-
-        //max tokens to be mint during each round.
-        private static BigInteger[] total_tokens_by_round = [ 
-            40000000, 
-            50000000,
-            100000000,
-            150000000,
-            200000000
-        ];
-
         //ICO Settings
         private static readonly byte[] neo_asset_id = { 155, 124, 255, 218, 166, 116, 190, 174, 15, 147, 14, 190, 96, 133, 175, 144, 147, 229, 254, 86, 179, 74, 92, 34, 12, 205, 207, 110, 252, 51, 111, 197 };
         private const ulong basic_rate = 1000 * factor;
@@ -122,7 +110,7 @@ namespace Aphelion_ICO
             Storage.Put(Storage.CurrentContext, Owner, preico_amount);
             Storage.Put(Storage.CurrentContext, "totalSupply", preico_amount);
             //TODO:Uncomment and figure out the notifications
-            //Transferred(null, Owner, preico_amount);
+            Transferred(null, Owner, preico_amount);
             return true;
         }
 
@@ -147,7 +135,7 @@ namespace Aphelion_ICO
                 return false;
             }
 
-            ulong swap_rate = rates_by_round[current_round];
+            ulong swap_rate = GetRateByRound(current_round);
             
             // you can get current swap token amount
             ulong token = GetCurrentSwapToken(sender, contribute_value, swap_rate, current_round);
@@ -162,7 +150,7 @@ namespace Aphelion_ICO
             BigInteger totalSupply = Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger();
             Storage.Put(Storage.CurrentContext, "totalSupply", token + totalSupply);
             //TODO: Uncomment and investigate
-            //Transferred(null, sender, token);
+            Transferred(null, sender, token);
             return true;
         }
 
@@ -186,9 +174,9 @@ namespace Aphelion_ICO
                 Storage.Put(Storage.CurrentContext, from, from_value - value);
             BigInteger to_value = Storage.Get(Storage.CurrentContext, to).AsBigInteger();
             Storage.Put(Storage.CurrentContext, to, to_value + value);
-            
+
             //TODO: Why is this notification crashing the neo-gui? figure it out
-            //Transferred(from, to, value);
+            Transferred(from, to, value);
             return true;
         }
 
@@ -204,7 +192,7 @@ namespace Aphelion_ICO
         {
             uint now = Blockchain.GetHeader(Blockchain.GetHeight()).Timestamp + 15 * 60;
             uint time = now - ico_start_date;
-            if (time < 0){
+            if (time < 0) {
                 return -1;
             }
             else if (time < round1_end_time)
@@ -236,7 +224,7 @@ namespace Aphelion_ICO
         //whether over contribute capacity, you can get the token amount
         private static ulong GetCurrentSwapToken(byte[] sender, ulong value, ulong swap_rate, int round)
         {
-            BigInteger total_amount = total_tokens_by_round[round];
+            BigInteger total_amount = GetMaxTokensByRound(round);
             ulong token = value / neo_decimals * swap_rate;
             BigInteger total_supply = Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger();
             BigInteger balance_token = total_amount - total_supply;
@@ -272,7 +260,7 @@ namespace Aphelion_ICO
             return ExecutionEngine.ExecutingScriptHash;
         }
 
-        // get all you contribute neo amount
+        // get the value of neo that is being passed to this contract to mint tokens
         private static ulong GetContributeValue()
         {
             Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
@@ -287,6 +275,32 @@ namespace Aphelion_ICO
                 }
             }
             return value;
+        }
+
+        //this method controls the rate at which neo tokens are exchanged for aphelion
+        //when minting tokens
+        //tried to have an array with this but the NEO compiler seems to fail with
+        //int arrays
+        private static ulong GetRateByRound(int round) {
+            if (round == 0) return 140; //round 1 exchange rate
+            if (round == 1) return 130; //round 2 exchange rates
+            if (round == 2) return 120; //round 3 exchange rates
+            if (round == 3) return 110; //round 4 exchange rates
+            if (round == 4) return 100; //round 5 exchange rates
+            return 0;
+        }
+
+        //this method controls the max tokens that can be minted each round.
+        //tried to have an array with this but the NEO compiler seems to fail with
+        //int arrays
+        private static int GetMaxTokensByRound(int round)
+        {
+            if (round == 0) return 40000000; //round 1 max tokens on the total supply
+            if (round == 1) return 50000000; //round 2 max tokens on the total supply
+            if (round == 2) return 100000000; //round 3 max tokens on the total supply
+            if (round == 3) return 150000000; //round 4 max tokens on the total supply
+            if (round == 4) return 200000000; //round 5 max tokens on the total supply
+            return 0;
         }
     }
 }

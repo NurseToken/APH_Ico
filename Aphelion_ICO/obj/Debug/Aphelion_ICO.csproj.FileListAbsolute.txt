@@ -1,7 +1,6 @@
 C:\Users\Andres\Source\Repos\Aphelion_ICO\Aphelion_ICO\bin\Debug\Aphelion_ICO.dll
 C:\Users\Andres\Source\Repos\Aphelion_ICO\Aphelion_ICO\bin\Debug\Aphelion_ICO.pdb
 C:\Users\Andres\Source\Repos\Aphelion_ICO\Aphelion_ICO\bin\Debug\Neo.SmartContract.Framework.dll
-C:\Users\Andres\Source\Repos\Aphelion_ICO\Aphelion_ICO\obj\Debug\Aphelion_ICO.csprojResolveAssemblyReference.cache
 C:\Users\Andres\Source\Repos\Aphelion_ICO\Aphelion_ICO\obj\Debug\Aphelion_ICO.csproj.CoreCompileInputs.cache
 C:\Users\Andres\Source\Repos\Aphelion_ICO\Aphelion_ICO\obj\Debug\Aphelion_ICO.dll
 C:\Users\Andres\Source\Repos\Aphelion_ICO\Aphelion_ICO\obj\Debug\Aphelion_ICO.pdb

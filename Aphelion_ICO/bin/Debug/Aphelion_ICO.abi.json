@@ -4,6 +4,27 @@
     "functions":
     [
         {
+            "name":"Name",
+            "returntype":"String",
+            "paramaters":
+            [
+            ]
+        },
+        {
+            "name":"Symbol",
+            "returntype":"String",
+            "paramaters":
+            [
+            ]
+        },
+        {
+            "name":"Decimals",
+            "returntype":"Integer",
+            "paramaters":
+            [
+            ]
+        },
+        {
             "name":"Main",
             "returntype":"Any",
             "paramaters":
