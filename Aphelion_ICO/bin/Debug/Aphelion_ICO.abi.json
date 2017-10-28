@@ -4,13 +4,6 @@
     "functions":
     [
         {
-            "name":"SETTINGS_DECIMAL",
-            "returntype":"Integer",
-            "paramaters":
-            [
-            ]
-        },
-        {
             "name":"Main",
             "returntype":"Any",
             "paramaters":
@@ -22,6 +15,57 @@
                 {
                     "name":"args",
                     "type":"Array"
+                }
+            ]
+        },
+        {
+            "name":"Deploy",
+            "returntype":"Boolean",
+            "paramaters":
+            [
+            ]
+        },
+        {
+            "name":"MintTokens",
+            "returntype":"Boolean",
+            "paramaters":
+            [
+            ]
+        },
+        {
+            "name":"TotalSupply",
+            "returntype":"Integer",
+            "paramaters":
+            [
+            ]
+        },
+        {
+            "name":"Transfer",
+            "returntype":"Boolean",
+            "paramaters":
+            [
+                {
+                    "name":"from",
+                    "type":"ByteArray"
+                },
+                {
+                    "name":"to",
+                    "type":"ByteArray"
+                },
+                {
+                    "name":"value",
+                    "type":"Integer"
+                }
+            ]
+        },
+        {
+            "name":"BalanceOf",
+            "returntype":"Integer",
+            "paramaters":
+            [
+                {
+                    "name":"address",
+                    "type":"ByteArray"
                 }
             ]
         }

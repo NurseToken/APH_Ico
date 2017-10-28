@@ -3,465 +3,290 @@ using Neo.SmartContract.Framework.Services.Neo;
 using Neo.SmartContract.Framework.Services.System;
 using System;
 using System.Numerics;
+using System.ComponentModel;
 
 namespace Aphelion_ICO
 {
     public class AphelionICO : SmartContract
     {
-        //KEYS used on the storage thru this contract
-        private static string KEY_OWNER() => "owner";
-        private static string KEY_TOTAL_SUPPLY() => "totalSupply";
+        //Public key of the owner of this contract
+        public static readonly byte[] Owner = { 47, 60, 170, 33, 216, 40, 148, 2, 242, 150, 9, 84, 154, 50, 237, 160, 97, 90, 55, 183 };
 
-        //token settings
-        private static string SETTINGS_NAME() => "AphelionTest";
-        private static string SETTINGS_SYMBOL() => "APHT";
-        public static byte SETTINGS_DECIMAL() => 8;
-        private const uint factor = 100000000; //decided by SETTINGS_DECIMAL()
+        //Token settings
+        public static string Name() => "Aphelion";
+        public static string Symbol() => "APH";
+        public static byte Decimals() => 8;
+        private const ulong factor = 100000000; //decided by Decimals()
+        private const ulong neo_decimals = 100000000;
 
-        private static uint round1_total_tokens = 10000000;
-        private static uint round2_total_tokens = 20000000;
-        private static uint round3_total_tokens = 70000000;
-        private static uint round4_total_tokens = 120000000;
-        private static uint round5_total_tokens = 170000000;
+        //rates at which the tokens will be exchanged for neo during each round
+        private static ulong[] rates_by_round = [ 140, 130, 120, 110, 100 ];
 
-        //Oct 25 2017
-        private static BigInteger ico_start_date = 1508889600;
+        //max tokens to be mint during each round.
+        private static BigInteger[] total_tokens_by_round = [ 
+            40000000, 
+            50000000,
+            100000000,
+            150000000,
+            200000000
+        ];
+
+        //ICO Settings
+        private static readonly byte[] neo_asset_id = { 155, 124, 255, 218, 166, 116, 190, 174, 15, 147, 14, 190, 96, 133, 175, 144, 147, 229, 254, 86, 179, 74, 92, 34, 12, 205, 207, 110, 252, 51, 111, 197 };
+        private const ulong basic_rate = 1000 * factor;
+
+        //This is the amount of icos raised on the preico campaign
+        private static BigInteger preico_amount = 30000000;
+
+        //Oct 28 2017
+        private static uint ico_start_date = 1508889600;
 
         // 1 day * 24 hours * 60 mins * 60 secs after the ico start date
-        private static BigInteger round1_end_time = 86400;
+        private static uint round1_end_time = 86400;
 
         // 3 days * 24 hours * 60 mins * 60 secs after the ico start date
-        private static BigInteger round2_end_time = 259200;
+        private static uint round2_end_time = 259200;
 
         // 7 days * 24 hours * 60 mins * 60 secs after the ico start date
-        private static BigInteger round3_end_time = 604800;
+        private static uint round3_end_time = 604800;
 
         // 14 days * 24 hours * 60 mins * 60 secs after the ico start date
-        private static BigInteger round4_end_time = 1209600;
+        private static uint round4_end_time = 1209600;
 
         //the total duration for the whole ico token generation
         // 21 days * 24 hours * 60 mins * 60 secs after the ico start date
         private static BigInteger ico_duration = 1814400;
 
+        [DisplayName("transfer")]
+        public static event Action<byte[], byte[], BigInteger> Transferred;
 
-        //this is the initial method that gets called when anyone invokes this contract
+        [DisplayName("refund")]
+        public static event Action<byte[], BigInteger> Refund;
+
         public static Object Main(string operation, params object[] args)
         {
-            if (!VerifyWithdrawal(operation)) return false;
-            if (operation == "mintTokens") return MintTokens();
-            if (operation == "totalSupply") return TotalSupply();
-            if (operation == "name") return SETTINGS_NAME();
-            if (operation == "symbol") return SETTINGS_SYMBOL();
-            if (operation == "transfer") return Transfer(args);
-            if (operation == "balanceOf") return BalanceOf(args);
-            if (operation == "deploy") return Deploy();
-            if (operation == "refund") return Refund();
-            if (operation == "withdrawal") return Withdrawal(args);
-            if (operation == "decimals") return SETTINGS_DECIMAL();
-
-            //We believe this is a variable used for inflation.
-            if (operation == "inflation") return 0;
-
-            //We believe this is a variable for the inflationRate, which could be specified in the Neo-Gui
-            if (operation == "inflationRate") return 0;
-
-            //We believe this is the date when the inflationRate would kick in.
-            if (operation == "inflationDate") return 0;
-
+            //TODO: Uncomment and figure out security
+            /*if (Runtime.Trigger == TriggerType.Verification)
+            {
+                if (Owner.Length == 20)
+                {
+                    // if const param Owner is script hash
+                    return Runtime.CheckWitness(Owner);
+                }
+                else if (Owner.Length == 33)
+                {
+                    // if const param Owner is public key
+                    byte[] signature = operation.AsByteArray();
+                    return VerifySignature(signature, Owner);
+                }
+            }
+            else if (Runtime.Trigger == TriggerType.Application)
+            {*/
+                if (operation == "deploy") return Deploy();
+                if (operation == "mintTokens") return MintTokens();
+                if (operation == "totalSupply") return TotalSupply();
+                if (operation == "name") return Name();
+                if (operation == "symbol") return Symbol();
+                if (operation == "transfer")
+                {
+                    if (args.Length != 3) return false;
+                    byte[] from = (byte[])args[0];
+                    byte[] to = (byte[])args[1];
+                    BigInteger value = (BigInteger)args[2];
+                    return Transfer(from, to, value);
+                }
+                if (operation == "balanceOf")
+                {
+                    if (args.Length != 1) return 0;
+                    byte[] account = (byte[])args[0];
+                    return BalanceOf(account);
+                }
+                if (operation == "decimals") return Decimals();
+            //}
+            //let's refund if they somehow send us something different to the currently supported 
+            //operations or supported assets
+            byte[] sender = GetSender();
+            ulong contribute_value = GetContributeValue();
+            if (contribute_value > 0 && sender.Length != 0)
+            {
+                Refund(sender, contribute_value);
+            }
             return false;
         }
 
-        // This should only be invoked once. In the Neo-Gui on the Peter Lin RPX branch, there is a method
-        // on the ExecuteDialog, which enables the user to invoke Deploy.
-        private static bool Deploy()
+        // initialization parameters, only once
+        public static bool Deploy()
         {
-            //TODO: We need to verify what key or signature is used for withdrawal
-            //This is a byte array of the public key of the owner of the contract
-            byte[] owner = new byte[] { 2, 133, 234, 182, 95, 74, 1, 38, 228, 184, 91, 78, 93, 139, 126, 48, 58, 255, 126, 251, 54, 13, 89, 95, 46, 49, 137, 187, 144, 72, 122, 213, 170 };
-
-            //This is the amount that we would allocate before the ICO. Right now,
-            //this is set to 30,000,000
-            BigInteger pre_ico_cap = 30000000;
-
-            //This is to enable us to manage the decimals as a BigInteger so we don't lose precision
-            uint decimals_rate = factor;
-
-            //We ask the Storage, which is the storage within the context of the Contract that resides on the
-            //Blockchain to get the totalSupply amount within this contract.
-            byte[] total_supply = Storage.Get(Storage.CurrentContext, KEY_TOTAL_SUPPLY());
-
-            //If the total_supply is already set, then we exit with false. The totalSupply can only
-            //be set once.
-            if (total_supply.Length != 0)
-            {
-                return false;
-            }
-
-            //We write to storage that the owner address has pre_ico_cap * decimal_rate Aphelion.
-            //We believe this is done to enable pre-ico reserves to be maintained.
-            //TODO: verify if the owner can somehow transfer this initial amount of APH easily
-            Storage.Put(Storage.CurrentContext, owner, IntToBytes(pre_ico_cap * decimals_rate));
-            Storage.Put(Storage.CurrentContext, KEY_OWNER(), owner);
-
-            //We then set the totalSupply to be equal to the pre_ico_cap * decimals_rate
-            Storage.Put(Storage.CurrentContext, KEY_TOTAL_SUPPLY(), IntToBytes(pre_ico_cap * decimals_rate));
-
-            //at this point, we have to items written to storage. We have the owner assigned to pre_ico_cap * decimals_rate,
-            //and we have the totalSupply equal to the pre_ico_cap * decimals_rate. We have 30,000,000 tokens in the system
-            //after calling deploy
+            byte[] total_supply = Storage.Get(Storage.CurrentContext, "totalSupply");
+            if (total_supply.Length != 0) return false;
+            Storage.Put(Storage.CurrentContext, Owner, preico_amount);
+            Storage.Put(Storage.CurrentContext, "totalSupply", preico_amount);
+            //TODO:Uncomment and figure out the notifications
+            //Transferred(null, Owner, preico_amount);
             return true;
         }
 
-        // This is a private function that we believe will only enable the owner to withdraw the NEO from the contract to their own wallet.
-        private static bool Withdrawal(object[] args)
-        {
-            //this function only supports one argument
-            if (args.Length != 1)
-            {
-                return false;
-            }
-
-            //we're assuming the one argument is the signature. what if it's not?
-            byte[] signature = (byte[])args[0]; //let's get the signature
-
-            //we get the the value of the "owner" from the storage that resides in the contract.
-            byte[] owner = Storage.Get(Storage.CurrentContext, KEY_OWNER());
-
-            //return true and allow withdrawal of NEO only if the owner of the
-            //contract is the one calling this function.
-            return VerifySignature(owner, signature);
-        }
-
-        // When people want to buy Aphelion using NEO, they "send" NEO to this contract.
-        // The MintTokens function gets invoked to mint the number of Aphelion tokens proportional to the
-        // amount of Neo sent to the contract. This function
+        // The function MintTokens is only usable by the chosen wallet
+        // contract to mint a number of tokens proportional to the
+        // amount of neo sent to the wallet contract. The function
         // can only be called during the tokenswap period
-        private static bool MintTokens()
+        public static bool MintTokens()
         {
-            uint decimals_rate = factor;
-
-            //We specify the Neo Global Asset Public Key so that we can ensure that only Neo is used in the transaction.
-            //This is the public key for the NEO Asset. This key iss unique to the whole blockchain.
-            byte[] neo_asset_id = new byte[] { 197, 111, 51, 252, 110, 207, 205, 12, 34, 92, 74, 179, 86, 254, 229, 147, 144, 175, 133, 96, 190, 14, 147, 15, 174, 190, 116, 166, 218, 255, 124, 155 };
-
-            //We acquire a transaction from the Execution Engine
-            Transaction trans = (Transaction)ExecutionEngine.ScriptContainer;
-
-            //Is this the UTXO Approach. The other approach is what the banks use may be cleaner.
-            //https://storeofvalue.github.io/posts/neo-vs-qtum-which-is-the-real-chinese-ethereum/
-
-            //We acquire the transaction_input from the transaction
-            TransactionInput trans_input = trans.GetInputs()[0];
-
-            //We acquire the previous hash code or the transaction input
-            byte[] prev_hash = trans_input.PrevHash;
-
-            //We acquire the new transaction from the blockchain using the previous_hash as the input.
-            Transaction prev_trans = Blockchain.GetTransaction(prev_hash);
-
-            //We acquire the TransactionOutput by using the transaction inputs previous index as the index into the
-            //previous_transactions output
-            TransactionOutput prev_trans_output = prev_trans.GetOutputs()[trans_input.PrevIndex];
-
-            //This enables us to see whether the asset that was passed to us in the previous transaction was Neo.
-            //We see if the previous_transaction output asset id is equal to the neo_asset_id we specified at the top.
-            if (!BytesEqual(prev_trans_output.AssetId, neo_asset_id))
-            {
-                //If they didn't pass Neo to this transaction, then we exit.
-                return false;
-            }
-            //We acquire the ScriptHash from the previous transaction output. The Script Hash is equal to public key, which
-            //tells us who it is.
-            byte[] sender = prev_trans_output.ScriptHash;
-
-            //We go to the current transactoins output.
-            TransactionOutput[] trans_outputs = trans.GetOutputs();
-
-            //We acquire the ScriptHash of the user who is Executing the transaction. The ScriptHash is the Public key.
-            byte[] receiver = ExecutionEngine.ExecutingScriptHash;
-
-            //We setup a value variable to store the amount of Neo that is coming in
-            long value = 0;
-
-            //We iterate through the Transaction Outputs
-            foreach (TransactionOutput trans_output in trans_outputs)
-            {
-                //We ensure ensure that the receiver is equal to the public key of the transaction output.
-                if (BytesEqual(trans_output.ScriptHash, receiver))
-                {
-                    //add the transaction_output value of Neo to the value variable
-                    value += trans_output.Value;
-
-                }
-            }
-
-            //Get the current exchange rate
-            uint swap_rate = CurrentSwapRate();
-
-            //If the current exchange rate is 0, then it's a refund. We want to log who gets the refund.
-            if (swap_rate == 0)
-            {
-                //We acquire the public key for the log of the refundes
-                byte[] refund = Storage.Get(Storage.CurrentContext, "refund");
-
-                //We convert the amount of Neos to be refunded from the value that we acquired by iterating through the output transactions
-                //to an integer
-                byte[] sender_value = IntToBytes(value);
-
-                //We take the refunds, and we actually concatenate the senders address to the refund log on the blockchain
-                byte[] new_refund = refund.Concat(sender.Concat(IntToBytes(sender_value.Length).Concat(sender_value)));
-
-                //We write the new_refund log to the "refund" entity in the storage of the contract
-                Storage.Put(Storage.CurrentContext, "refund", new_refund);
-                return false;
-            }
-
-            //We now calculate the amount of Aphelion that this person is purchasing.
-            //We multiply the sum of the transaction output values by the current exchange rate by the decimals_rate
-            long token = value * swap_rate * decimals_rate;
-
-            //We acquire the send value from the contract storage. We associate that with a BigInteger to symbolize the current
-            //amount of Aphelion in the system for this user.
-            BigInteger total_token = BytesToInt(Storage.Get(Storage.CurrentContext, sender));
-
-            //We then sum the current amount of aphelion plus the new amount of aphelion with transaction, and we write to the
-            //storage of the contract
-            Storage.Put(Storage.CurrentContext, sender, IntToBytes(token + total_token));
-
-            //Next, we acquire the totalSupply from the contract's storage
-            byte[] totalSupply = Storage.Get(Storage.CurrentContext, KEY_TOTAL_SUPPLY());
-
-            //We increment the totalSupply by the amount purchased.
-            Storage.Put(Storage.CurrentContext, KEY_TOTAL_SUPPLY(), IntToBytes(token + BytesToInt(totalSupply)));
-
-            //The transaction is complete.
-            return true;
-        }
-
-        //Get the log of people who have asked for refunds
-        private static byte[] Refund()
-        {
-            return Storage.Get(Storage.CurrentContext, "refund");
-        }
-
-        //Get the total token supply
-        private static BigInteger TotalSupply()
-        {
-            byte[] totalSupply = Storage.Get(Storage.CurrentContext, KEY_TOTAL_SUPPLY());
-            return BytesToInt(totalSupply);
-        }
-
-        //Transfer APH tokens from the contract to a public address.
-        //For NEP5 compliance, the params should be:
-        //  The first index contains the from public key and type is byte[],
-        //  The second index contains the receiver address and type is byte[],
-        //  The third index contains the number of token and type is BigInteger .
-        private static bool Transfer(object[] args)
-        {
-            if (args.Length != 3)
-              return false;
-
-            //Get the from address.
-            byte[] from = (byte[])args[0];
-
-            //Need to ensure the FROM address is the one doing the transfer.
-            if (!Runtime.CheckWitness(from))
-              return false;
-
-            //Now we get the TO address. The address that we're going to send the tokens, too.
-            byte[] to = (byte[])args[1];
-
-            //The amount of APH to be transfered
-            BigInteger value = BytesToInt((byte[])args[2]);
-
-            // return if no APHs are being transfered
-            if (value < 0)
-              return false;
-
-            //get the amount of APH for the FROM account that is available to transfer to the TO account
-            byte[] from_value = Storage.Get(Storage.CurrentContext, from);
-
-            // get the amount of APH for the TO account here.
-            byte[] to_value = Storage.Get(Storage.CurrentContext, to);
-
-            //Calculate the new value for the FROM account after the transaction takes place
-            BigInteger n_from_value = BytesToInt(from_value) - value;
-
-             //If the new value iz zero, return as the transfer can't be performed
-            if (n_from_value < 0)
-              return false;
-
-            //now let's calculate the new value for the TO account
-            BigInteger n_to_value = BytesToInt(to_value) + value;
-
-            //Write to Storage the new calculatd FROM account value
-            Storage.Put(Storage.CurrentContext, from, IntToBytes(n_from_value));
-
-            //Write to Storage the new calculatd TO account value
-            Storage.Put(Storage.CurrentContext, to, IntToBytes(n_to_value));
-
-            //fire the transfered event, to comply with NEP-5
-            Transferred(args);
-            return true;
-        }
-
-        //This event is fired when a succesful transfer is made.
-        //For NEP5 compliance, the params should be:
-        //The first element is sender address and type is byte[],
-        //the second element is receiver address and type is byte[],
-        //the third element is the number of token and type is BigInteger .
-        private static void Transferred(object[] args)
-        {
-            Runtime.Notify(args);
-        }
-
-        //Get the balance of APH in a given address
-        //For NEP5 compliance, the params should be:
-        //The first element is the address of the account and type is byte[]
-        private static BigInteger BalanceOf(object[] args)
-        {
-            //if no arguments are found, return
-            if (args.Length != 1)
-              return 0;
-
-            //get the address of the account in question
-            byte[] address = (byte[])args[0];
-
-            //get the amount of APH for the specified account from the storage
-            byte[] balance = Storage.Get(Storage.CurrentContext, address);
-
-            //return the APH
-            return BytesToInt(balance);
-        }
-
-
-        //helper function that parses Bytes to BigInteger
-        private static BigInteger BytesToInt(byte[] array)
-        {
-            var buffer = new BigInteger(array);
-            return buffer;
-        }
-
-        //helper function that parses BigInteger to bytes
-        private static byte[] IntToBytes(BigInteger value)
-        {
-            byte[] buffer = value.ToByteArray();
-            return buffer;
-        }
-
-        //helper function that compares if 2 arrays of bytes are equal
-        private static bool BytesEqual(byte[] b1, byte[] b2)
-        {
-            if (b1.Length != b2.Length) return false;
-            for (int i = 0; i < b1.Length; i++)
-                if (b1[i] != b2[i])
-                    return false;
-            return true;
-        }
-
-        // Only the Transfer function in this smart contract can invoke
-        // the function VerifyWithdrawal
-        private static bool VerifyWithdrawal(string operation)
-        {
-            if (operation == "withdrawal")
-            {
-                return true;
-            }
-
-            //Acquire the Transaction from the ScriptContainer
-            Transaction trans = (Transaction)ExecutionEngine.ScriptContainer;
-
-            //Acquire the first transaction input
-            TransactionInput trans_input = trans.GetInputs()[0];
-
-            //Acquire the previous transaction by querying the blockchain for the previous hash 
-            //from the transaction input
-            Transaction prev_trans = Blockchain.GetTransaction(trans_input.PrevHash);
-
-            //Acquire the previous transaction output from the previous_transaction 
-            //using the transaction input's previous index
-            TransactionOutput prev_trans_output = prev_trans.GetOutputs()[trans_input.PrevIndex];
-
-            //Acquire the ScriptHash, aka public key
-            byte[] script_hash = ExecutionEngine.ExecutingScriptHash;
-
-            //If the public key of the execution engine is the same key as the previous transaction
-            // then we return false. TODO: why?
-            if (BytesEqual(prev_trans_output.ScriptHash, script_hash))
+            byte[] sender = GetSender();
+            // contribute asset is not neo
+            if (sender.Length == 0)
             {
                 return false;
             }
+            ulong contribute_value = GetContributeValue();
+
+            // the current exchange rate between ico tokens and neo during the token swap period
+            int current_round = GetCurrentRound();
+            if (current_round < 0) {
+                Refund(sender, contribute_value);
+                return false;
+            }
+
+            ulong swap_rate = rates_by_round[current_round];
+            
+            // you can get current swap token amount
+            ulong token = GetCurrentSwapToken(sender, contribute_value, swap_rate, current_round);
+            if (token <= 0)
+            {
+                return false;
+            }
+
+            // crowdfunding success
+            BigInteger balance = Storage.Get(Storage.CurrentContext, sender).AsBigInteger();
+            Storage.Put(Storage.CurrentContext, sender, token + balance);
+            BigInteger totalSupply = Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger();
+            Storage.Put(Storage.CurrentContext, "totalSupply", token + totalSupply);
+            //TODO: Uncomment and investigate
+            //Transferred(null, sender, token);
             return true;
+        }
+
+        // get the total token supply
+        public static BigInteger TotalSupply()
+        {
+            return Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger();
+        }
+
+        // function that is always called when someone wants to transfer tokens.
+        public static bool Transfer(byte[] from, byte[] to, BigInteger value)
+        {
+            if (value <= 0) return false;
+            //TODO: Make this work
+            //if (!Runtime.CheckWitness(from)) return false;
+            BigInteger from_value = Storage.Get(Storage.CurrentContext, from).AsBigInteger();
+            if (from_value < value) return false;
+            if (from_value == value)
+                Storage.Delete(Storage.CurrentContext, from);
+            else
+                Storage.Put(Storage.CurrentContext, from, from_value - value);
+            BigInteger to_value = Storage.Get(Storage.CurrentContext, to).AsBigInteger();
+            Storage.Put(Storage.CurrentContext, to, to_value + value);
+            
+            //TODO: Why is this notification crashing the neo-gui? figure it out
+            //Transferred(from, to, value);
+            return true;
+        }
+
+        // get the account balance of another account with address
+        public static BigInteger BalanceOf(byte[] address)
+        {
+            return Storage.Get(Storage.CurrentContext, address).AsBigInteger();
         }
 
         // The function CurrentSwapRate() returns the current exchange rate
-        // between aph tokens and neo during the token swap period
-        private static uint CurrentSwapRate()
+        // between ico tokens and neo during the token swap period
+        private static int GetCurrentRound()
         {
-            //The current height of the Blockchain. The most recent block
-            uint height = Blockchain.GetHeight();
-
-            //The timestampe of the most recent block translates to Now.
-            uint now = Blockchain.GetHeader(height).Timestamp;
-
-            //Subtract the now from current ico_start_date. 
-            //This is the amount of time since the beginning of the ICO.
-            //We will use this time to calculate the round.
-            uint time = (uint)ico_start_date - now;
-
-            //Exchange rate that we will use to convert from Neo to Aphelion
-            uint exchange_rate = 1000;
-
-            //This is the maximum amount of Aphelion that we will generate. 
-            //We'll stop generating APH when we hit this limit
-            BigInteger total_amount = 1000000000;
-
-            //Grab the current total supply of Aphelion
-            byte[] total_supply = Storage.Get(Storage.CurrentContext, KEY_TOTAL_SUPPLY());
-            
-            // if now is before ico start date, then return 0 as the rate
-            if (time < 0)
+            uint now = Blockchain.GetHeader(Blockchain.GetHeight()).Timestamp + 15 * 60;
+            uint time = now - ico_start_date;
+            if (time < 0){
+                return -1;
+            }
+            else if (time < round1_end_time)
             {
                 return 0;
             }
-            //if the ico has started, we're less than the round1 end time, and our total supply for round 1
-            //is less than the allotment for round 1, then give a 150% bonus
-            else if (time <= round1_end_time && BytesToInt(total_supply) < round1_total_tokens)
+            else if (time < round2_end_time)
             {
-                return exchange_rate * 150 / 100;
+                return 1;
             }
-            //if the ico has started, we're greater than the round1 end time and less than round 2 end time
-            //and our total supply for round 2 is less than the allotment for round 2, then give a 140% bonus
-            else if (time > round1_end_time &&  time <= round2_end_time && BytesToInt(total_supply) < round2_total_tokens)
+            else if (time < round3_end_time)
             {
-                //return the preico exchange rate here
-                return exchange_rate * 140 / 100;
+                return 2;
             }
-            //if the ico has started, we're greater than the round2 end time and less than round 3 end time
-            //and our total supply for round 3 is less than the allotment for round 3, then give a 130% bonus
-            else if (time > round2_end_time && time <= round3_end_time && BytesToInt(total_supply) < round3_total_tokens)
+            else if (time < round4_end_time)
             {
-                return exchange_rate * 130 / 100;
+                return 3;
             }
-            //if the ico has started, we're greater than the round 3 end time and less than round 4 end time
-            //and our total supply for round 4 is less than the allotment for round 4, then give a 120% bonus
-            else if (time > round3_end_time && time <= round4_end_time && BytesToInt(total_supply) < round4_total_tokens)
+            else if (time < ico_duration)
             {
-                //return the preico exchange rate here
-                return exchange_rate * 120 / 100;
-            }
-            //if the ico has started, we're greater than the round 4 end time and less than the end time for the ico
-            //and our total supply for round 5 is less than the allotment for round 5, then use the default exchange rate
-            else if (time > round4_end_time && time <= ico_duration && BytesToInt(total_supply) < round5_total_tokens)
-            {
-                //return the preico exchange rate here
-                return exchange_rate;
+                return 4;
             }
             else
             {
+                return -1;
+            }
+        }
+
+        //whether over contribute capacity, you can get the token amount
+        private static ulong GetCurrentSwapToken(byte[] sender, ulong value, ulong swap_rate, int round)
+        {
+            BigInteger total_amount = total_tokens_by_round[round];
+            ulong token = value / neo_decimals * swap_rate;
+            BigInteger total_supply = Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger();
+            BigInteger balance_token = total_amount - total_supply;
+            if (balance_token <= 0)
+            {
+                Refund(sender, value);
                 return 0;
             }
+            else if (balance_token < token)
+            {
+                Refund(sender, (token - balance_token) / swap_rate * neo_decimals);
+                token = (ulong)balance_token;
+            }
+            return token;
+        }
 
+        // check whether asset is neo and get sender script hash
+        private static byte[] GetSender()
+        {
+            Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
+            TransactionOutput[] reference = tx.GetReferences();
+            // you can choice refund or not refund
+            foreach (TransactionOutput output in reference)
+            {
+                if (output.AssetId == neo_asset_id) return output.ScriptHash;
+            }
+            return new byte[0];
+        }
+
+        // get smart contract script hash
+        private static byte[] GetReceiver()
+        {
+            return ExecutionEngine.ExecutingScriptHash;
+        }
+
+        // get all you contribute neo amount
+        private static ulong GetContributeValue()
+        {
+            Transaction tx = (Transaction)ExecutionEngine.ScriptContainer;
+            TransactionOutput[] outputs = tx.GetOutputs();
+            ulong value = 0;
+            // get the total amount of Neo
+            foreach (TransactionOutput output in outputs)
+            {
+                if (output.ScriptHash == GetReceiver() && output.AssetId == neo_asset_id)
+                {
+                    value += (ulong)output.Value;
+                }
+            }
+            return value;
         }
     }
 }
