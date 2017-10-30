@@ -10,53 +10,55 @@ namespace Aphelion_ICO
     public class AphelionICO : SmartContract
     {
         //Token settings
-        public static string Name() => "Aphelion1234567891012";
-        public static string Symbol() => "APH1234567891012";
+        public static string Name() => "AphelionX13";
+        public static string Symbol() => "APHX13";
         public static byte Decimals() => 8;
         private const ulong factor = 100000000; //decided by Decimals()
         private const ulong neo_decimals = 100000000;
 
         //ICO Settings
         private static readonly byte[] neo_asset_id = { 155, 124, 255, 218, 166, 116, 190, 174, 15, 147, 14, 190, 96, 133, 175, 144, 147, 229, 254, 86, 179, 74, 92, 34, 12, 205, 207, 110, 252, 51, 111, 197 };
-        private const ulong basic_rate = 1000 * factor;
+        private const ulong basic_rate = 10 * factor;
 
         //This is the amount of icos raised on the preico campaign
-        private static BigInteger preico_amount = 30000000;
+        private const ulong preico_amount = 30000000;
 
         //Oct 28 2017
-        private static uint ico_start_date = 1508889600;
+        private const uint ico_start_date = 1508889600;
 
         // 1 day * 24 hours * 60 mins * 60 secs after the ico start date
-        private static uint round1_end_time = 86400;
+        private const uint round1_end_time = 86400;
 
         // 3 days * 24 hours * 60 mins * 60 secs after the ico start date
-        private static uint round2_end_time = 259200;
+        private const uint round2_end_time = 259200;
 
         // 7 days * 24 hours * 60 mins * 60 secs after the ico start date
-        private static uint round3_end_time = 604800;
+        private const uint round3_end_time = 604800;
 
         // 14 days * 24 hours * 60 mins * 60 secs after the ico start date
-        private static uint round4_end_time = 1209600;
+        private const uint round4_end_time = 1209600;
 
         //the total duration for the whole ico token generation
         // 21 days * 24 hours * 60 mins * 60 secs after the ico start date
-        private static BigInteger ico_duration = 1814400;
+        private const ulong ico_duration = 1814400;
 
         public static Object Main(string operation, params object[] args)
         {
             //TODO: Uncomment and figure out security
-            /*if (Runtime.Trigger == TriggerType.Verification)
+            /*
+            if (Runtime.Trigger == TriggerType.Verification)
             {
-                if (Owner.Length == 20)
+                byte[] localOwner = new byte[] { 157, 201, 156, 227, 20, 155, 136, 203, 248, 102, 84, 37, 212, 233, 216, 215, 103, 215, 38, 148 };
+                if (localOwner.Length == 20)
                 {
                     // if const param Owner is script hash
-                    return Runtime.CheckWitness(Owner);
+                    return Runtime.CheckWitness(localOwner);
                 }
-                else if (Owner.Length == 33)
+                else if (localOwner.Length == 33)
                 {
                     // if const param Owner is public key
                     byte[] signature = operation.AsByteArray();
-                    return VerifySignature(signature, Owner);
+                    return VerifySignature(signature, localOwner);
                 }
             }
             else if (Runtime.Trigger == TriggerType.Application)
@@ -98,7 +100,7 @@ namespace Aphelion_ICO
         public static bool Deploy()
         {
             //Address of the owner of this contract
-            byte[] localOwner = { 65, 87, 75, 109, 71, 109, 77, 72, 116, 120, 82, 70, 88, 68, 98, 110, 122, 97, 76, 65, 104, 85, 97, 49, 55, 119, 86, 65, 75, 109, 89, 53, 122, 104 };
+            byte[] localOwner = new byte[] { 157, 201, 156, 227, 20, 155, 136, 203, 248, 102, 84, 37, 212, 233, 216, 215, 103, 215, 38, 148 };
 
             byte[] total_supply = Storage.Get(Storage.CurrentContext, "totalSupply");
             if (total_supply.Length != 0) return false;
@@ -158,9 +160,10 @@ namespace Aphelion_ICO
         // function that is always called when someone wants to transfer tokens.
         public static bool Transfer(byte[] from, byte[] to, BigInteger value)
         {
-            if (value <= 0) return false;
-            //TODO: Make this work
-            //if (!Runtime.CheckWitness(from)) return false;
+            // Fix the value by the factor. They come up multiplied by the precision/decimal value
+            value = value / factor;
+            if (value <= 0) return false;            
+            if (!Runtime.CheckWitness(from)) return false;
             BigInteger from_value = Storage.Get(Storage.CurrentContext, from).AsBigInteger();
             if (from_value < value) return false;
             if (from_value == value)
@@ -177,8 +180,8 @@ namespace Aphelion_ICO
 
         // get the account balance of another account with address
         public static BigInteger BalanceOf(byte[] address)
-        {
-            return Storage.Get(Storage.CurrentContext, address).AsBigInteger();
+        {            
+            return Storage.Get(Storage.CurrentContext, address).AsBigInteger() * factor;            
         }
 
         // The function CurrentSwapRate() returns the current exchange rate
