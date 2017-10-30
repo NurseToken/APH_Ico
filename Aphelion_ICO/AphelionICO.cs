@@ -9,12 +9,9 @@ namespace Aphelion_ICO
 {
     public class AphelionICO : SmartContract
     {
-        //Public key of the owner of this contract
-        public static readonly byte[] Owner = { 47, 60, 170, 33, 216, 40, 148, 2, 242, 150, 9, 84, 154, 50, 237, 160, 97, 90, 55, 183 };
-
         //Token settings
-        public static string Name() => "Aphelion";
-        public static string Symbol() => "APH";
+        public static string Name() => "Aphelion1234567891012";
+        public static string Symbol() => "APH1234567891012";
         public static byte Decimals() => 8;
         private const ulong factor = 100000000; //decided by Decimals()
         private const ulong neo_decimals = 100000000;
@@ -45,12 +42,6 @@ namespace Aphelion_ICO
         // 21 days * 24 hours * 60 mins * 60 secs after the ico start date
         private static BigInteger ico_duration = 1814400;
 
-        [DisplayName("transfer")]
-        public static event Action<byte[], byte[], BigInteger> Transferred;
-
-        [DisplayName("refund")]
-        public static event Action<byte[], BigInteger> Refund;
-
         public static Object Main(string operation, params object[] args)
         {
             //TODO: Uncomment and figure out security
@@ -71,6 +62,7 @@ namespace Aphelion_ICO
             else if (Runtime.Trigger == TriggerType.Application)
             {*/
                 if (operation == "deploy") return Deploy();
+                if (operation == "list_refund") return ListRefund();
                 if (operation == "mintTokens") return MintTokens();
                 if (operation == "totalSupply") return TotalSupply();
                 if (operation == "name") return Name();
@@ -97,7 +89,7 @@ namespace Aphelion_ICO
             ulong contribute_value = GetContributeValue();
             if (contribute_value > 0 && sender.Length != 0)
             {
-                Refund(sender, contribute_value);
+                //Refund(sender, contribute_value);
             }
             return false;
         }
@@ -105,12 +97,15 @@ namespace Aphelion_ICO
         // initialization parameters, only once
         public static bool Deploy()
         {
+            //Address of the owner of this contract
+            byte[] localOwner = { 65, 87, 75, 109, 71, 109, 77, 72, 116, 120, 82, 70, 88, 68, 98, 110, 122, 97, 76, 65, 104, 85, 97, 49, 55, 119, 86, 65, 75, 109, 89, 53, 122, 104 };
+
             byte[] total_supply = Storage.Get(Storage.CurrentContext, "totalSupply");
             if (total_supply.Length != 0) return false;
-            Storage.Put(Storage.CurrentContext, Owner, preico_amount);
+            Storage.Put(Storage.CurrentContext, localOwner, preico_amount);
             Storage.Put(Storage.CurrentContext, "totalSupply", preico_amount);
             //TODO:Uncomment and figure out the notifications
-            Transferred(null, Owner, preico_amount);
+            //Transferred(null, Owner, preico_amount);
             return true;
         }
 
@@ -131,7 +126,7 @@ namespace Aphelion_ICO
             // the current exchange rate between ico tokens and neo during the token swap period
             int current_round = GetCurrentRound();
             if (current_round < 0) {
-                Refund(sender, contribute_value);
+                //Refund(sender, contribute_value);
                 return false;
             }
 
@@ -150,7 +145,7 @@ namespace Aphelion_ICO
             BigInteger totalSupply = Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger();
             Storage.Put(Storage.CurrentContext, "totalSupply", token + totalSupply);
             //TODO: Uncomment and investigate
-            Transferred(null, sender, token);
+            //Transferred(null, sender, token);
             return true;
         }
 
@@ -176,7 +171,7 @@ namespace Aphelion_ICO
             Storage.Put(Storage.CurrentContext, to, to_value + value);
 
             //TODO: Why is this notification crashing the neo-gui? figure it out
-            Transferred(from, to, value);
+            //Transferred(from, to, value);
             return true;
         }
 
@@ -221,7 +216,8 @@ namespace Aphelion_ICO
             }
         }
 
-        //whether over contribute capacity, you can get the token amount
+        //If the amount of tokens mint or neo sent goes over the total tokens on a round, 
+        //swap the ones available and refund the rest. 
         private static ulong GetCurrentSwapToken(byte[] sender, ulong value, ulong swap_rate, int round)
         {
             BigInteger total_amount = GetMaxTokensByRound(round);
@@ -230,12 +226,12 @@ namespace Aphelion_ICO
             BigInteger balance_token = total_amount - total_supply;
             if (balance_token <= 0)
             {
-                Refund(sender, value);
+                //Refund(sender, value);
                 return 0;
             }
             else if (balance_token < token)
             {
-                Refund(sender, (token - balance_token) / swap_rate * neo_decimals);
+                //Refund(sender, (token - balance_token) / swap_rate * neo_decimals);
                 token = (ulong)balance_token;
             }
             return token;
@@ -302,5 +298,19 @@ namespace Aphelion_ICO
             if (round == 4) return 200000000; //round 5 max tokens on the total supply
             return 0;
         }
+
+        private static byte[] ListRefund()
+        {
+            return Storage.Get(Storage.CurrentContext, "refund");
+        }
+        
+        private static void Transfered(byte[] from, byte[] to, BigInteger amount) {
+            //do nothing for now
+        }
+
+        private static void Refund(byte[] from, BigInteger amount) {
+            //do nothing for now
+        }
+
     }
 }
