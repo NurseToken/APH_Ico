@@ -3,15 +3,14 @@ using Neo.SmartContract.Framework.Services.Neo;
 using Neo.SmartContract.Framework.Services.System;
 using System;
 using System.Numerics;
-using System.ComponentModel;
 
 namespace Aphelion_ICO
 {
     public class AphelionICO : SmartContract
     {
         //Token settings
-        public static string Name() => "AphelionX13";
-        public static string Symbol() => "APHX13";
+        public static string Name() => "AphelionX14";
+        public static string Symbol() => "APHX14";
         public static byte Decimals() => 8;
         private const ulong factor = 100000000; //decided by Decimals()
         private const ulong neo_decimals = 100000000;
@@ -44,27 +43,20 @@ namespace Aphelion_ICO
 
         public static Object Main(string operation, params object[] args)
         {
-            //TODO: Uncomment and figure out security
-            /*
             if (Runtime.Trigger == TriggerType.Verification)
             {
+                //this verification is run when trying to spend funds from this contract. 
+                //only the owner would be able to spend the funds.
                 byte[] localOwner = new byte[] { 157, 201, 156, 227, 20, 155, 136, 203, 248, 102, 84, 37, 212, 233, 216, 215, 103, 215, 38, 148 };
                 if (localOwner.Length == 20)
                 {
-                    // if const param Owner is script hash
                     return Runtime.CheckWitness(localOwner);
-                }
-                else if (localOwner.Length == 33)
-                {
-                    // if const param Owner is public key
-                    byte[] signature = operation.AsByteArray();
-                    return VerifySignature(signature, localOwner);
                 }
             }
             else if (Runtime.Trigger == TriggerType.Application)
-            {*/
+            {
                 if (operation == "deploy") return Deploy();
-                if (operation == "list_refund") return ListRefund();
+                if (operation == "listRefund") return ListRefund();
                 if (operation == "mintTokens") return MintTokens();
                 if (operation == "totalSupply") return TotalSupply();
                 if (operation == "name") return Name();
@@ -84,14 +76,6 @@ namespace Aphelion_ICO
                     return BalanceOf(account);
                 }
                 if (operation == "decimals") return Decimals();
-            //}
-            //let's refund if they somehow send us something different to the currently supported 
-            //operations or supported assets
-            byte[] sender = GetSender();
-            ulong contribute_value = GetContributeValue();
-            if (contribute_value > 0 && sender.Length != 0)
-            {
-                //Refund(sender, contribute_value);
             }
             return false;
         }
@@ -106,8 +90,6 @@ namespace Aphelion_ICO
             if (total_supply.Length != 0) return false;
             Storage.Put(Storage.CurrentContext, localOwner, preico_amount);
             Storage.Put(Storage.CurrentContext, "totalSupply", preico_amount);
-            //TODO:Uncomment and figure out the notifications
-            //Transferred(null, Owner, preico_amount);
             return true;
         }
 
@@ -128,7 +110,7 @@ namespace Aphelion_ICO
             // the current exchange rate between ico tokens and neo during the token swap period
             int current_round = GetCurrentRound();
             if (current_round < 0) {
-                //Refund(sender, contribute_value);
+                Refund(sender, contribute_value);
                 return false;
             }
 
@@ -146,9 +128,14 @@ namespace Aphelion_ICO
             Storage.Put(Storage.CurrentContext, sender, token + balance);
             BigInteger totalSupply = Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger();
             Storage.Put(Storage.CurrentContext, "totalSupply", token + totalSupply);
-            //TODO: Uncomment and investigate
-            //Transferred(null, sender, token);
             return true;
+        }
+
+        public static void Refund(byte[] sender, BigInteger value) {
+            byte[] refund = Storage.Get(Storage.CurrentContext, "refund");
+            byte[] sender_value = IntToBytes(value);
+            byte[] new_refund = refund.Concat(sender.Concat(IntToBytes(sender_value.Length).Concat(sender_value)));
+            Storage.Put(Storage.CurrentContext, "refund", new_refund);
         }
 
         // get the total token supply
@@ -172,9 +159,6 @@ namespace Aphelion_ICO
                 Storage.Put(Storage.CurrentContext, from, from_value - value);
             BigInteger to_value = Storage.Get(Storage.CurrentContext, to).AsBigInteger();
             Storage.Put(Storage.CurrentContext, to, to_value + value);
-
-            //TODO: Why is this notification crashing the neo-gui? figure it out
-            //Transferred(from, to, value);
             return true;
         }
 
@@ -229,12 +213,12 @@ namespace Aphelion_ICO
             BigInteger balance_token = total_amount - total_supply;
             if (balance_token <= 0)
             {
-                //Refund(sender, value);
+                Refund(sender, value);
                 return 0;
             }
             else if (balance_token < token)
             {
-                //Refund(sender, (token - balance_token) / swap_rate * neo_decimals);
+                Refund(sender, (token - balance_token) / swap_rate * neo_decimals);
                 token = (ulong)balance_token;
             }
             return token;
@@ -311,8 +295,16 @@ namespace Aphelion_ICO
             //do nothing for now
         }
 
-        private static void Refund(byte[] from, BigInteger amount) {
-            //do nothing for now
+        private static BigInteger BytesToInt(byte[] array)
+        {
+            var buffer = new BigInteger(array);
+            return buffer;
+        }
+
+        private static byte[] IntToBytes(BigInteger value)
+        {
+            byte[] buffer = value.ToByteArray();
+            return buffer;
         }
 
     }
