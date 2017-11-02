@@ -69,6 +69,17 @@
             ]
         },
         {
+            "name":"RoundTotal",
+            "returntype":"Integer",
+            "paramaters":
+            [
+                {
+                    "name":"round",
+                    "type":"Integer"
+                }
+            ]
+        },
+        {
             "name":"TotalSupply",
             "returntype":"Integer",
             "paramaters":

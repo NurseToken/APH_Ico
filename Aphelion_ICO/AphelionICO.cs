@@ -58,7 +58,12 @@ namespace Aphelion_ICO
                 if (operation == "listRefund") return ListRefund();
                 if (operation == "mintTokens") return MintTokens();
                 if (operation == "totalSupply") return TotalSupply();
-                if (operation == "roundTotal") return RoundTotal((BigInteger)args[0]);
+                if (operation == "currentRate") return GetCurrentRate();
+                if (operation == "roundTotal")
+                {
+                    if (args.Length != 1) return false;
+                    return RoundTotal((BigInteger)args[0]);
+                }
                 if (operation == "name") return Name();
                 if (operation == "symbol") return Symbol();
                 if (operation == "transfer")
@@ -273,6 +278,13 @@ namespace Aphelion_ICO
         private static byte[] ListRefund()
         {
             return Storage.Get(Storage.CurrentContext, "refund");
+        }
+
+        // the current exchange rate between ico tokens and neo during the token swap period
+        // this method is here to display the current rate on the custom dialog for the neo-gui
+        private static ulong GetCurrentRate() {
+            int current_round = GetCurrentRound();
+            return GetRateByRound(current_round);
         }
         
         private static void Transfered(byte[] from, byte[] to, BigInteger amount) {
