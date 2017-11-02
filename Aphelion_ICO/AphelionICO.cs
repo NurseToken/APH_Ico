@@ -10,7 +10,7 @@ namespace Aphelion_ICO
     public class AphelionICO : SmartContract
     {
         //Token settings
-        public static ulong development_version = 3;
+        public static ulong development_version = 123456;
         public static string Name() => "Aphelion";
         public static string Symbol() => "APH";
         public static byte Decimals() => 8;
@@ -27,9 +27,9 @@ namespace Aphelion_ICO
         //This is the total of tokens to produce during the ico campaign
         private const ulong total_ico_amount = 440000000;
 
-        //Oct 28 2017
-        private const uint ico_start_date = 1508889600;
-
+        //Nov 2, 2017
+        private const uint ico_start_date = 1509580800;
+        
         // 1 day * 24 hours * 60 mins * 60 secs after the ico start date
         private const uint round1_end_time = 86400;
 
@@ -269,9 +269,9 @@ namespace Aphelion_ICO
         //tried to have an array with this but the NEO compiler seems to fail with
         //int arrays
         private static ulong GetRateByRound(int round) {
-            if (round == 0) return 200; //round 1 exchange rate
-            if (round == 1) return 150; //round 2 exchange rates
-            if (round == 2) return 100; //round 3 exchange rates
+            if (round == 0) return 150; //round 1 exchange rate
+            if (round == 1) return 140; //round 2 exchange rates
+            if (round == 2) return 120; //round 3 exchange rates
             return 0;
         }
 
