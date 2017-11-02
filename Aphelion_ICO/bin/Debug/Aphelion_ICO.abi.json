@@ -54,6 +54,21 @@
             ]
         },
         {
+            "name":"Refund",
+            "returntype":"Void",
+            "paramaters":
+            [
+                {
+                    "name":"sender",
+                    "type":"ByteArray"
+                },
+                {
+                    "name":"value",
+                    "type":"Integer"
+                }
+            ]
+        },
+        {
             "name":"TotalSupply",
             "returntype":"Integer",
             "paramaters":
