@@ -2,6 +2,7 @@
 using Neo.SmartContract.Framework.Services.Neo;
 using Neo.SmartContract.Framework.Services.System;
 using System;
+using System.Net.NetworkInformation;
 using System.Numerics;
 
 namespace Aphelion_ICO
@@ -9,8 +10,9 @@ namespace Aphelion_ICO
     public class AphelionICO : SmartContract
     {
         //Token settings
-        public static string Name() => "AphelionX14";
-        public static string Symbol() => "APHX14";
+        public static ulong development_version = 3;
+        public static string Name() => "Aphelion";
+        public static string Symbol() => "APH";
         public static byte Decimals() => 8;
         private const ulong factor = 100000000; //decided by Decimals()
         private const ulong neo_decimals = 100000000;
@@ -59,6 +61,7 @@ namespace Aphelion_ICO
                 if (operation == "listRefund") return ListRefund();
                 if (operation == "mintTokens") return MintTokens();
                 if (operation == "totalSupply") return TotalSupply();
+                if (operation == "roundTotal") return RoundTotal((BigInteger)args[0]);
                 if (operation == "name") return Name();
                 if (operation == "symbol") return Symbol();
                 if (operation == "transfer")
@@ -128,6 +131,8 @@ namespace Aphelion_ICO
             Storage.Put(Storage.CurrentContext, sender, token + balance);
             BigInteger totalSupply = Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger();
             Storage.Put(Storage.CurrentContext, "totalSupply", token + totalSupply);
+            BigInteger currentRoundSupply = Storage.Get(Storage.CurrentContext, "round-" + current_round).AsBigInteger();
+            Storage.Put(Storage.CurrentContext, "round-"+current_round, currentRoundSupply + token);
             return true;
         }
 
@@ -138,10 +143,16 @@ namespace Aphelion_ICO
             Storage.Put(Storage.CurrentContext, "refund", new_refund);
         }
 
+        // get the total tokens generated for a round
+        public static BigInteger RoundTotal(BigInteger round)
+        {
+            return Storage.Get(Storage.CurrentContext, "round-" + round).AsBigInteger() * factor;
+        }
+
         // get the total token supply
         public static BigInteger TotalSupply()
         {
-            return Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger();
+            return Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger() * factor;
         }
 
         // function that is always called when someone wants to transfer tokens.
