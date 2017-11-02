@@ -22,7 +22,10 @@ namespace Aphelion_ICO
         private const ulong basic_rate = 10 * factor;
 
         //This is the amount of icos raised on the preico campaign
-        private const ulong preico_amount = 30000000;
+        private const ulong preico_amount = 220000000;
+
+        //This is the total of tokens to produce during the ico campaign
+        private const ulong total_ico_amount = 440000000;
 
         //Oct 28 2017
         private const uint ico_start_date = 1508889600;
@@ -33,15 +36,9 @@ namespace Aphelion_ICO
         // 3 days * 24 hours * 60 mins * 60 secs after the ico start date
         private const uint round2_end_time = 259200;
 
-        // 7 days * 24 hours * 60 mins * 60 secs after the ico start date
-        private const uint round3_end_time = 604800;
-
-        // 14 days * 24 hours * 60 mins * 60 secs after the ico start date
-        private const uint round4_end_time = 1209600;
-
         //the total duration for the whole ico token generation
-        // 21 days * 24 hours * 60 mins * 60 secs after the ico start date
-        private const ulong ico_duration = 1814400;
+        // 14 days * 24 hours * 60 mins * 60 secs after the ico start date
+        private const ulong ico_duration = 1209600;
 
         public static Object Main(string operation, params object[] args)
         {
@@ -49,7 +46,7 @@ namespace Aphelion_ICO
             {
                 //this verification is run when trying to spend funds from this contract. 
                 //only the owner would be able to spend the funds.
-                byte[] localOwner = new byte[] { 157, 201, 156, 227, 20, 155, 136, 203, 248, 102, 84, 37, 212, 233, 216, 215, 103, 215, 38, 148 };
+                byte[] localOwner = new byte[] { 65, 78, 82, 107, 117, 54, 55, 116, 72, 78, 111, 53, 57, 114, 122, 103, 113, 105, 86, 101, 122, 102, 99, 103, 74, 56, 107, 53, 49, 103, 51, 70, 111, 55 };
                 if (localOwner.Length == 20)
                 {
                     return Runtime.CheckWitness(localOwner);
@@ -87,7 +84,7 @@ namespace Aphelion_ICO
         public static bool Deploy()
         {
             //Address of the owner of this contract
-            byte[] localOwner = new byte[] { 157, 201, 156, 227, 20, 155, 136, 203, 248, 102, 84, 37, 212, 233, 216, 215, 103, 215, 38, 148 };
+            byte[] localOwner = new byte[] { 65, 78, 82, 107, 117, 54, 55, 116, 72, 78, 111, 53, 57, 114, 122, 103, 113, 105, 86, 101, 122, 102, 99, 103, 74, 56, 107, 53, 49, 103, 51, 70, 111, 55 };
 
             byte[] total_supply = Storage.Get(Storage.CurrentContext, "totalSupply");
             if (total_supply.Length != 0) return false;
@@ -176,7 +173,7 @@ namespace Aphelion_ICO
         // get the account balance of another account with address
         public static BigInteger BalanceOf(byte[] address)
         {            
-            return Storage.Get(Storage.CurrentContext, address).AsBigInteger() * factor;            
+            return Storage.Get(Storage.CurrentContext, address).AsBigInteger() * factor;
         }
 
         // The function CurrentSwapRate() returns the current exchange rate
@@ -196,17 +193,9 @@ namespace Aphelion_ICO
             {
                 return 1;
             }
-            else if (time < round3_end_time)
-            {
-                return 2;
-            }
-            else if (time < round4_end_time)
-            {
-                return 3;
-            }
             else if (time < ico_duration)
             {
-                return 4;
+                return 2;
             }
             else
             {
@@ -218,10 +207,9 @@ namespace Aphelion_ICO
         //swap the ones available and refund the rest. 
         private static ulong GetCurrentSwapToken(byte[] sender, ulong value, ulong swap_rate, int round)
         {
-            BigInteger total_amount = GetMaxTokensByRound(round);
             ulong token = value / neo_decimals * swap_rate;
             BigInteger total_supply = Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger();
-            BigInteger balance_token = total_amount - total_supply;
+            BigInteger balance_token = total_ico_amount - total_supply;
             if (balance_token <= 0)
             {
                 Refund(sender, value);
@@ -276,24 +264,9 @@ namespace Aphelion_ICO
         //tried to have an array with this but the NEO compiler seems to fail with
         //int arrays
         private static ulong GetRateByRound(int round) {
-            if (round == 0) return 140; //round 1 exchange rate
-            if (round == 1) return 130; //round 2 exchange rates
-            if (round == 2) return 120; //round 3 exchange rates
-            if (round == 3) return 110; //round 4 exchange rates
-            if (round == 4) return 100; //round 5 exchange rates
-            return 0;
-        }
-
-        //this method controls the max tokens that can be minted each round.
-        //tried to have an array with this but the NEO compiler seems to fail with
-        //int arrays
-        private static int GetMaxTokensByRound(int round)
-        {
-            if (round == 0) return 40000000; //round 1 max tokens on the total supply
-            if (round == 1) return 50000000; //round 2 max tokens on the total supply
-            if (round == 2) return 100000000; //round 3 max tokens on the total supply
-            if (round == 3) return 150000000; //round 4 max tokens on the total supply
-            if (round == 4) return 200000000; //round 5 max tokens on the total supply
+            if (round == 0) return 200; //round 1 exchange rate
+            if (round == 1) return 150; //round 2 exchange rates
+            if (round == 2) return 100; //round 3 exchange rates
             return 0;
         }
 
