@@ -2,7 +2,7 @@
 using Neo.SmartContract.Framework.Services.Neo;
 using Neo.SmartContract.Framework.Services.System;
 using System;
-using System.Net.NetworkInformation;
+using System.ComponentModel;
 using System.Numerics;
 
 namespace Aphelion_ICO
@@ -11,8 +11,8 @@ namespace Aphelion_ICO
     {
         //Token settings
         public static ulong development_version = 123456;
-        public static string Name() => "Aphelion";
-        public static string Symbol() => "APH";
+        public static string Name() => "AphelionAnd1267";
+        public static string Symbol() => "APHAnd1267";
         public static byte Decimals() => 8;
         private const ulong factor = 100000000; //decided by Decimals()
         private const ulong neo_decimals = 100000000;
@@ -39,6 +39,13 @@ namespace Aphelion_ICO
         //the total duration for the whole ico token generation
         // 14 days * 24 hours * 60 mins * 60 secs after the ico start date
         private const ulong ico_duration = 1209600;
+
+        [DisplayName("transfer")]
+        public static event Action<byte[], byte[], BigInteger> TransferredEvent;
+
+        [DisplayName("refund")]
+        public static event Action<byte[], BigInteger> RefundEvent;
+
 
         public static Object Main(string operation, params object[] args)
         {
@@ -95,6 +102,7 @@ namespace Aphelion_ICO
             if (total_supply.Length != 0) return false;
             Storage.Put(Storage.CurrentContext, localOwner, preico_amount);
             Storage.Put(Storage.CurrentContext, "totalSupply", preico_amount);
+            TransferredEvent(null, localOwner, preico_amount);
             return true;
         }
 
@@ -135,6 +143,7 @@ namespace Aphelion_ICO
             Storage.Put(Storage.CurrentContext, "totalSupply", token + totalSupply);
             BigInteger currentRoundSupply = Storage.Get(Storage.CurrentContext, "round-" + current_round).AsBigInteger();
             Storage.Put(Storage.CurrentContext, "round-"+current_round, currentRoundSupply + token);
+            TransferredEvent(null, sender, token);
             return true;
         }
 
@@ -143,6 +152,7 @@ namespace Aphelion_ICO
             byte[] sender_value = IntToBytes(value);
             byte[] new_refund = refund.Concat(sender.Concat(IntToBytes(sender_value.Length).Concat(sender_value)));
             Storage.Put(Storage.CurrentContext, "refund", new_refund);
+            RefundEvent(sender, value);
         }
 
         // get the total tokens generated for a round
@@ -172,6 +182,7 @@ namespace Aphelion_ICO
                 Storage.Put(Storage.CurrentContext, from, from_value - value);
             BigInteger to_value = Storage.Get(Storage.CurrentContext, to).AsBigInteger();
             Storage.Put(Storage.CurrentContext, to, to_value + value);
+            TransferredEvent(from, to, value);
             return true;
         }
 
@@ -287,10 +298,6 @@ namespace Aphelion_ICO
             return GetRateByRound(current_round);
         }
         
-        private static void Transfered(byte[] from, byte[] to, BigInteger amount) {
-            //do nothing for now
-        }
-
         private static BigInteger BytesToInt(byte[] array)
         {
             var buffer = new BigInteger(array);
