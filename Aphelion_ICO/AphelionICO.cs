@@ -147,11 +147,20 @@ namespace Aphelion_ICO
             return true;
         }
 
-        public static void Refund(byte[] sender, BigInteger value) {
+        public static void Refund(byte[] sender, BigInteger value) 
+        {            
             byte[] refund = Storage.Get(Storage.CurrentContext, "refund");
             byte[] sender_value = IntToBytes(value);
-            byte[] new_refund = refund.Concat(sender.Concat(IntToBytes(sender_value.Length).Concat(sender_value)));
-            Storage.Put(Storage.CurrentContext, "refund", new_refund);
+            /** Store the value with the = char between the sender and the value, this allows us to split the values
+             *  when trying to show the refunds.
+             */
+            byte[] new_refund = sender.Concat("=".AsByteArray()).Concat(sender_value);            
+            if (refund.Length != 0)
+            {               
+                /** Split each entry with a "@" symbol. This will allow us to identify each different refund entry. */
+                new_refund = refund.Concat("@".AsByteArray()).Concat(new_refund);
+            }
+            Storage.Put(Storage.CurrentContext, "refund", new_refund);                                               
             RefundEvent(sender, value);
         }
 
@@ -309,6 +318,5 @@ namespace Aphelion_ICO
             byte[] buffer = value.ToByteArray();
             return buffer;
         }
-
     }
 }
