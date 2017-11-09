@@ -11,21 +11,20 @@ namespace Aphelion_ICO
     {
         //Token settings
         public static ulong development_version = 123456;
-        public static string Name() => "AphelionPTest";
-        public static string Symbol() => "APHPTest";
+        public static string Name() => "AphelionPT2";
+        public static string Symbol() => "APHPT2";
         public static byte Decimals() => 8;
         private const ulong factor = 100000000; //decided by Decimals()
-        private const ulong neo_decimals = 100000000;
 
         //ICO Settings
         private static readonly byte[] neo_asset_id = { 155, 124, 255, 218, 166, 116, 190, 174, 15, 147, 14, 190, 96, 133, 175, 144, 147, 229, 254, 86, 179, 74, 92, 34, 12, 205, 207, 110, 252, 51, 111, 197 };
         private const ulong basic_rate = 10 * factor;
 
         //This is the amount of icos raised on the preico campaign
-        private const ulong preico_amount = 220000000;
+        private const ulong preico_amount = 220000000 * factor;
 
         //This is the total of tokens to produce during the ico campaign
-        private const ulong total_ico_amount = 440000000;
+        private const ulong total_ico_amount = 440000000 * factor;
 
         //Nov 8, 2017
         private const uint ico_start_date = 1510099200;
@@ -167,20 +166,18 @@ namespace Aphelion_ICO
         // get the total tokens generated for a round
         public static BigInteger RoundTotal(BigInteger round)
         {
-            return Storage.Get(Storage.CurrentContext, "round-" + round).AsBigInteger() * factor;
+            return Storage.Get(Storage.CurrentContext, "round-" + round).AsBigInteger();
         }
 
         // get the total token supply
         public static BigInteger TotalSupply()
         {
-            return Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger() * factor;
+            return Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger();
         }
 
         // function that is always called when someone wants to transfer tokens.
         public static bool Transfer(byte[] from, byte[] to, BigInteger value)
         {
-            // Fix the value by the factor. They come up multiplied by the precision/decimal value
-            value = value / factor;
             if (value <= 0) return false;            
             if (!Runtime.CheckWitness(from)) return false;
             BigInteger from_value = Storage.Get(Storage.CurrentContext, from).AsBigInteger();
@@ -198,7 +195,7 @@ namespace Aphelion_ICO
         // get the account balance of another account with address
         public static BigInteger BalanceOf(byte[] address)
         {            
-            return Storage.Get(Storage.CurrentContext, address).AsBigInteger() * factor;
+            return Storage.Get(Storage.CurrentContext, address).AsBigInteger();
         }
 
         // The function CurrentSwapRate() returns the current exchange rate
@@ -232,7 +229,7 @@ namespace Aphelion_ICO
         //swap the ones available and refund the rest. 
         private static ulong GetCurrentSwapToken(byte[] sender, ulong value, ulong swap_rate, int round)
         {
-            ulong token = value / neo_decimals * swap_rate;
+            ulong token = value / factor * swap_rate;
             BigInteger total_supply = Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger();
             BigInteger balance_token = total_ico_amount - total_supply;
             if (balance_token <= 0)
@@ -242,7 +239,7 @@ namespace Aphelion_ICO
             }
             else if (balance_token < token)
             {
-                Refund(sender, (token - balance_token) / swap_rate * neo_decimals);
+                Refund(sender, (token - balance_token) / swap_rate * factor);
                 token = (ulong)balance_token;
             }
             return token;
@@ -289,9 +286,9 @@ namespace Aphelion_ICO
         //tried to have an array with this but the NEO compiler seems to fail with
         //int arrays
         private static ulong GetRateByRound(int round) {
-            if (round == 0) return 150; //round 1 exchange rate
-            if (round == 1) return 140; //round 2 exchange rates
-            if (round == 2) return 120; //round 3 exchange rates
+            if (round == 0) return 150 * factor; //round 1 exchange rate
+            if (round == 1) return 140 * factor; //round 2 exchange rates
+            if (round == 2) return 120 * factor; //round 3 exchange rates
             return 0;
         }
 
