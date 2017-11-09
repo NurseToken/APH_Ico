@@ -11,8 +11,8 @@ namespace Aphelion_ICO
     {
         //Token settings
         public static ulong development_version = 123456;
-        public static string Name() => "AphelionAnd1267";
-        public static string Symbol() => "APHAnd1267";
+        public static string Name() => "AphelionPTest";
+        public static string Symbol() => "APHPTest";
         public static byte Decimals() => 8;
         private const ulong factor = 100000000; //decided by Decimals()
         private const ulong neo_decimals = 100000000;
@@ -27,18 +27,18 @@ namespace Aphelion_ICO
         //This is the total of tokens to produce during the ico campaign
         private const ulong total_ico_amount = 440000000;
 
-        //Nov 2, 2017
-        private const uint ico_start_date = 1509580800;
+        //Nov 8, 2017
+        private const uint ico_start_date = 1510099200;
         
         // 1 day * 24 hours * 60 mins * 60 secs after the ico start date
         private const uint round1_end_time = 86400;
 
-        // 3 days * 24 hours * 60 mins * 60 secs after the ico start date
-        private const uint round2_end_time = 259200;
+        // 2 days * 24 hours * 60 mins * 60 secs after the ico start date
+        private const uint round2_end_time = 172800;
 
         //the total duration for the whole ico token generation
-        // 14 days * 24 hours * 60 mins * 60 secs after the ico start date
-        private const ulong ico_duration = 1209600;
+        // 3 days * 24 hours * 60 mins * 60 secs after the ico start date
+        private const ulong ico_duration = 259200;
 
         [DisplayName("transfer")]
         public static event Action<byte[], byte[], BigInteger> TransferredEvent;
