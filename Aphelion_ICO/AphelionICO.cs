@@ -11,8 +11,8 @@ namespace Aphelion_ICO
     {
         //Token settings
         public static ulong development_version = 123456;
-        public static string Name() => "AphelionPT2";
-        public static string Symbol() => "APHPT2";
+        public static string Name() => "Aphelion";
+        public static string Symbol() => "APH";
         public static byte Decimals() => 8;
         private const ulong factor = 100000000; //decided by Decimals()
 
@@ -21,23 +21,23 @@ namespace Aphelion_ICO
         private const ulong basic_rate = 10 * factor;
 
         //This is the amount of icos raised on the preico campaign
-        private const ulong preico_amount = 220000000 * factor;
+        private const ulong preico_amount = 240000000 * factor;
 
         //This is the total of tokens to produce during the ico campaign
         private const ulong total_ico_amount = 440000000 * factor;
 
-        //Nov 8, 2017
-        private const uint ico_start_date = 1510099200;
+        //Nov 11, 2017
+        private const uint ico_start_date = 1510704000;
         
-        // 1 day * 24 hours * 60 mins * 60 secs after the ico start date
+        // 1 day * 24 hours * 60 mins * 60 secs after the ico start date. 150%.
         private const uint round1_end_time = 86400;
 
         // 2 days * 24 hours * 60 mins * 60 secs after the ico start date
         private const uint round2_end_time = 172800;
 
         //the total duration for the whole ico token generation
-        // 3 days * 24 hours * 60 mins * 60 secs after the ico start date
-        private const ulong ico_duration = 259200;
+        // 23 days * 24 hours * 60 mins * 60 secs after the ico start date
+        private const ulong ico_duration = 1987200;
 
         [DisplayName("transfer")]
         public static event Action<byte[], byte[], BigInteger> TransferredEvent;
@@ -51,8 +51,8 @@ namespace Aphelion_ICO
             if (Runtime.Trigger == TriggerType.Verification)
             {
                 //this verification is run when trying to spend funds from this contract. 
-                //only the owner would be able to spend the funds.
-                byte[] localOwner = new byte[] { 65, 78, 82, 107, 117, 54, 55, 116, 72, 78, 111, 53, 57, 114, 122, 103, 113, 105, 86, 101, 122, 102, 99, 103, 74, 56, 107, 53, 49, 103, 51, 70, 111, 55 };
+                //only the owner's standard account publish hash would be able to spend the funds.
+                byte[] localOwner = new byte[] { 124, 72, 121, 183, 170, 172, 10, 72, 198, 243, 218, 99, 74, 104, 153, 92, 4, 154, 220, 84 };
                 if (localOwner.Length == 20)
                 {
                     return Runtime.CheckWitness(localOwner);
@@ -94,8 +94,8 @@ namespace Aphelion_ICO
         // initialization parameters, only once
         public static bool Deploy()
         {
-            //Address of the owner of this contract
-            byte[] localOwner = new byte[] { 65, 78, 82, 107, 117, 54, 55, 116, 72, 78, 111, 53, 57, 114, 122, 103, 113, 105, 86, 101, 122, 102, 99, 103, 74, 56, 107, 53, 49, 103, 51, 70, 111, 55 };
+            //Address of the owner's of the owner's standard contract public hash in byte[] format
+            byte[] localOwner = new byte[] { 124, 72, 121, 183, 170, 172, 10, 72, 198, 243, 218, 99, 74, 104, 153, 92, 4, 154, 220, 84 };
 
             byte[] total_supply = Storage.Get(Storage.CurrentContext, "totalSupply");
             if (total_supply.Length != 0) return false;
@@ -286,9 +286,9 @@ namespace Aphelion_ICO
         //tried to have an array with this but the NEO compiler seems to fail with
         //int arrays
         private static ulong GetRateByRound(int round) {
-            if (round == 0) return 150 * factor; //round 1 exchange rate
-            if (round == 1) return 140 * factor; //round 2 exchange rates
-            if (round == 2) return 120 * factor; //round 3 exchange rates
+            if (round == 0) return 210 * factor; //round 1 exchange rate
+            if (round == 1) return 175 * factor; //round 2 exchange rates
+            if (round == 2) return 140 * factor; //round 3 exchange rates
             return 0;
         }
 
