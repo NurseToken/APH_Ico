@@ -26,7 +26,7 @@ namespace Aphelion_ICO
         //This is the total of tokens to produce during the ico campaign
         private const ulong total_ico_amount = 440000000 * factor;
 
-        //Nov 11, 2017
+        //Nov 15, 2017
         private const uint ico_start_date = 1510704000;
         
         // 1 day * 24 hours * 60 mins * 60 secs after the ico start date. 150%.
